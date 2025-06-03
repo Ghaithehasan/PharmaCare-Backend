@@ -18,7 +18,7 @@ class Medicine extends Model
         'bar_code',
         'people_price',
         'tax_rate',
-        'expiry_date',
+        // 'expiry_date',
         'alternative_ids'
     ];
 

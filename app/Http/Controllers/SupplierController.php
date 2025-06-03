@@ -161,8 +161,6 @@ class SupplierController extends Controller
     
     public function store(Request $request)
     {
-        // dd(app()->getLocale());
-        // ✅ 1️⃣ تحقق من صحة الإدخال (Validation)
         $validatedData = $request->validate([
             'company_name' => 'required|string|max:50|unique:suppliers,company_name',
             'contact_person_name' => 'nullable|string|max:50',
@@ -277,8 +275,8 @@ class SupplierController extends Controller
                 DB::commit();
 
                 return response()->json([
-                    'status' => true,
-                    'message' => __('messages.supplier_deleted_successfully'),
+                    // 'status' => true,
+                    // 'message' => __('messages.supplier_deleted_successfully'),
                     'data' => null
                 ], 200);
 

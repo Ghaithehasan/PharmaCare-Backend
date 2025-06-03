@@ -47,6 +47,8 @@ Route::post('add-damaged-medicine', [DamagedMedicineController::class, 'store'])
 
 Route::apiResource('medicines' , MedicineController::class)->middleware([ApiLocalization::class]);
 
+Route::post('add-category', [MedicineController::class, 'storeCategory'])->middleware([ApiLocalization::class]);
+
 Route::get('generaite-barcode', [MedicineController::class, 'generateNumericBarcode'])->middleware([ApiLocalization::class]);
 
 

@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Medicine;
+use App\Models\Category;
+
 use App\Models\MedicineAttachment;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -32,6 +34,7 @@ class MedicineController extends Controller
 
         // Handle attachment if exists
         if ($request->hasFile('attachment')) {
+
             $file = $request->file('attachment');
             
             // Generate unique filename
@@ -56,6 +59,25 @@ class MedicineController extends Controller
             'medicine' => $medicine,
             'message' => 'تم إضافة الدواء والمرفق بنجاح'
         ], 200);
+    }
+
+
+    public function storeCategory(Request $request)
+    {
+        // dd();
+        $validatedData = $request->validate([
+            'name' => 'required|string|unique:categories,name|max:255',
+            'description' => 'nullable|string|max:255',
+        ]);
+
+        $category = Category::create($validatedData);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'تم إضافة الفئة بنجاح',
+            'status_code' => 200,
+            'category' => $category,
+        ]);
     }
 
     public function generateNumericBarcode()

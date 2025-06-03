@@ -25,7 +25,7 @@ return new class extends Migration
             $table->decimal('people_price', 8, 2);
             $table->decimal('supplier_price', 8, 2);
             $table->decimal('tax_rate', 5, 2);
-            $table->date('expiry_date');
+            // $table->date('expiry_date');
             $table->json('alternative_ids')->nullable();
             $table->timestamps();
         });
