@@ -18,7 +18,8 @@ class Medicine extends Model
         'bar_code',
         'people_price',
         'tax_rate',
-        // 'expiry_date',
+        'expiry_date',
+        'last_notification_date',
         'alternative_ids'
     ];
 
@@ -52,112 +53,43 @@ class Medicine extends Model
         return Medicine::whereIn('id', $this->alternative_ids ?? []);
     }
 
-    // إضافة دواء بديل
+    // إضافة دواء بديل (علاقة أحادية الاتجاه)
     public function addAlternative($medicines)
     {
         $medicines = collect($medicines);
-        // 1. جمع جميع البدائل الحالية للدواء الحالي
-        $currentAlternatives = $this->alternatives()->pluck('id')->toArray();
-        // 2. جمع جميع البدائل الحالية للأدوية الجديدة
-        $newAlternatives = [];
+        
         foreach ($medicines as $medicine) {
-            $medicineAlternatives = $medicine->alternatives()->pluck('id')->toArray();
-            $newAlternatives = array_merge($newAlternatives, $medicineAlternatives);
-        }
-        
-        // 3. دمج جميع المعرفات
-        $allIds = array_unique(array_merge(
-            $currentAlternatives,
-            $newAlternatives,
-            $medicines->pluck('id')->toArray()
-        ));
-        
-        // 4. إزالة معرف الدواء الحالي
-        $allIds = array_diff($allIds, [$this->id]);
-        
-        // 5. تحديث بدائل الدواء الحالي
-        $this->alternative_ids = array_values($allIds);
-        $this->save();
-
-        // 6. تحديث بدائل جميع الأدوية المعنية
-        // أولاً: تحديث الأدوية الجديدة التي تم إضافتها كبدائل
-        foreach ($medicines as $medicine) {
-            $medicineAlternatives = $medicine->alternative_ids ?? [];
-            
-            // إضافة الدواء الحالي إلى بدائل الدواء الجديد
-            $medicineAlternatives = array_unique(array_merge($medicineAlternatives, [$this->id]));
-            // إضافة باقي البدائل
-            $medicineAlternatives = array_unique(array_merge($medicineAlternatives, $allIds));
-            // إزالة معرف الدواء نفسه من بدائله
-            $medicineAlternatives = array_diff($medicineAlternatives, [$medicine->id]);
-            
-            $medicine->alternative_ids = array_values($medicineAlternatives);
-            $medicine->save();
-        }
-
-        // ثانياً: تحديث باقي البدائل الموجودة
-        foreach ($allIds as $id) {
-            // تخطي الأدوية التي تم تحديثها في الخطوة السابقة
-            if ($medicines->contains('id', $id)) {
-                continue;
-            }
-
-            $medicine = Medicine::find($id);
-            if ($medicine) {
-                $medicineAlternatives = $medicine->alternative_ids ?? [];
-                
-                // إضافة الدواء الحالي إلى بدائل الدواء
-                $medicineAlternatives = array_unique(array_merge($medicineAlternatives, [$this->id]));
-                // إضافة باقي البدائل
-                $medicineAlternatives = array_unique(array_merge($medicineAlternatives, $allIds));
-                // إزالة معرف الدواء نفسه من بدائله
-                $medicineAlternatives = array_diff($medicineAlternatives, [$id]);
-                
-                $medicine->alternative_ids = array_values($medicineAlternatives);
-                $medicine->save();
+            // إضافة الدواء الجديد كبديل للدواء الحالي فقط
+            $currentAlternatives = $this->alternative_ids ?? [];
+            if (!in_array($medicine->id, $currentAlternatives)) {
+                $currentAlternatives[] = $medicine->id;
+                $this->alternative_ids = array_values($currentAlternatives);
+                $this->save();
             }
         }
     }
 
-    // إزالة دواء بديل
-    public function removeAlternative($medicines)
+    // إضافة بديل مع العلاقة المتبادلة (إذا كانت مطلوبة)
+    public function addBidirectionalAlternative($medicines)
     {
-        try {
-            // تحويل إلى Collection إذا كانت مصفوفة
-            $medicines = collect($medicines);
-            
-            // التحقق من وجود الأدوية
-            if ($medicines->isEmpty()) {
-                throw new \Exception('لم يتم تحديد أي أدوية للإزالة');
-            }
-
-            // الحصول على معرفات الأدوية المراد حذفها
-            $idsToRemove = $medicines->pluck('id')->toArray();
-            
-            // التحقق من أن الدواء الحالي ليس من ضمن الأدوية المراد حذفها
-            if (in_array($this->id, $idsToRemove)) {
-                throw new \Exception('لا يمكن إزالة الدواء من بدائله الخاصة');
-            }
-
-            // 1. إزالة البدائل من الدواء الحالي
+        $medicines = collect($medicines);
+        
+        foreach ($medicines as $medicine) {
+            // 1. إضافة الدواء الجديد كبديل للدواء الحالي
             $currentAlternatives = $this->alternative_ids ?? [];
-            $remainingAlternatives = array_diff($currentAlternatives, $idsToRemove);
-            $this->alternative_ids = array_values($remainingAlternatives);
-            $this->save();
-
-            // 2. إزالة الدواء الحالي من بدائل الأدوية المحذوفة
-            foreach ($medicines as $medicine) {
-                $medicineAlternatives = $medicine->alternative_ids ?? [];
-                if (($key = array_search($this->id, $medicineAlternatives)) !== false) {
-                    unset($medicineAlternatives[$key]);
-                    $medicine->alternative_ids = array_values($medicineAlternatives);
-                    $medicine->save();
-                }
+            if (!in_array($medicine->id, $currentAlternatives)) {
+                $currentAlternatives[] = $medicine->id;
+                $this->alternative_ids = array_values($currentAlternatives);
+                $this->save();
             }
-
-            return true;
-        } catch (\Exception $e) {
-            throw $e;
+            
+            // 2. إضافة الدواء الحالي كبديل للدواء الجديد
+            $medicineAlternatives = $medicine->alternative_ids ?? [];
+            if (!in_array($this->id, $medicineAlternatives)) {
+                $medicineAlternatives[] = $this->id;
+                $medicine->alternative_ids = array_values($medicineAlternatives);
+                $medicine->save();
+            }
         }
     }
 

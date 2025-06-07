@@ -7,6 +7,7 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\MedicineController;
 use App\Http\Controllers\DamagedMedicineController;
+use App\Http\Controllers\InventoryCountController;
 use App\Http\Middleware\ApiLocalization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -37,7 +38,9 @@ Route::apiResource('suppliers' , SupplierController::class)->middleware([ApiLoca
 
 Route::post('add-alternative-medicines/{medicineId}' , [MedicineController::class, 'storeAlternative'])->middleware([ApiLocalization::class]);
 
-Route::post('delete-alternative-medicines/{medicineId}' , [MedicineController::class, 'removeAlternative'])->middleware([ApiLocalization::class]);
+// Route::post('delete-alternative-medicines/{medicineId}' , [MedicineController::class, 'removeAlternative'])->middleware([ApiLocalization::class]);
+
+Route::apiResource('inventory-counts' , InventoryCountController::class)->middleware([ApiLocalization::class]);
 
 Route::get('show-all-alternatives/{medicineId}',[MedicineController::class , 'showAllAlternatives'])->middleware([ApiLocalization::class]);
 
