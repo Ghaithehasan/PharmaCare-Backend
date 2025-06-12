@@ -11,6 +11,7 @@ class Medicine extends Model
         'scientific_name',
         'arabic_name',
         'category_id',
+        'medicine_form_id',
         'quantity',
         'type',
         'alert_quantity',
@@ -33,6 +34,12 @@ class Medicine extends Model
         return $this->belongsTo(Category::class);
     }
 
+    // العلاقة مع الشكل الدوائي
+    public function medicineForm()
+    {
+        return $this->belongsTo(MedicineForm::class);
+    }
+
     // العلاقة مع المرفقات
     public function attachments()
     {
@@ -50,7 +57,7 @@ class Medicine extends Model
     // الحصول على الأدوية البديلة
     public function alternatives()
     {
-        return Medicine::whereIn('id', $this->alternative_ids ?? []);
+        return Medicine::whereIn('id', $this->alternative_ids ?? [])->get();
     }
 
     // إضافة دواء بديل (علاقة أحادية الاتجاه)
@@ -106,4 +113,7 @@ class Medicine extends Model
                       ->where('quantity', '>', 0)
                       ->get();
     }
+
+
+    
 }

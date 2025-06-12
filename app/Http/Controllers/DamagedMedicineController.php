@@ -17,104 +17,130 @@ class DamagedMedicineController extends Controller
     {
         try {
             // التحقق من صحة البيانات المدخلة
-            $validator = Validator::make($request->all(), [
+            $validated = $request->validate([
                 'search' => 'nullable|string|max:255',
                 'reason' => 'nullable|in:expired,damaged,storage_issue',
                 'date_from' => 'nullable|date',
                 'date_to' => 'nullable|date|after_or_equal:date_from',
-                'sort_by' => 'nullable|in:damaged_at,quantity_talif,created_at',
-                'sort_direction' => 'nullable|in:asc,desc',
-                'per_page' => 'nullable|integer|min:1|max:100',
                 'medicine_id' => 'nullable|exists:medicines,id'
             ]);
 
-            if ($validator->fails()) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'خطأ في البيانات المدخلة',
-                    'errors' => $validator->errors(),
-                    'status_code' => 422
-                ], 422);
-            }
-
-            // بناء الاستعلام
+            // بناء الاستعلام الأساسي
             $query = DamagedMedicine::with(['medicine' => function($q) {
-                $q->select('id', 'medicine_name', 'scientific_name', 'arabic_name', 'bar_code');
+                $q->select('id', 'medicine_name', 'sentific_name', 'arabic_name', 'bar_code');
             }]);
 
             // تطبيق الفلاتر
-            if ($request->filled('search')) {
-                $search = $request->search;
-                $query->whereHas('medicine', function($q) use ($search) {
-                    $q->where('medicine_name', 'like', "%{$search}%")
-                      ->orWhere('scientific_name', 'like', "%{$search}%")
-                      ->orWhere('arabic_name', 'like', "%{$search}%")
-                      ->orWhere('bar_code', 'like', "%{$search}%");
-                });
-            }
+            $this->applyFilters($query, $validated);
 
-            if ($request->filled('reason')) {
-                $query->where('reason', $request->reason);
-            }
+            // تطبيق الترتيب الافتراضي
+            $query->orderBy('damaged_at', 'desc');
 
-            if ($request->filled('date_from')) {
-                $query->whereDate('damaged_at', '>=', $request->date_from);
-            }
+            // الحصول على النتائج
+            $damagedMedicines = $query->paginate(15);
 
-            if ($request->filled('date_to')) {
-                $query->whereDate('damaged_at', '<=', $request->date_to);
-            }
+            // تنسيق البيانات
+            $damagedMedicines->getCollection()->transform(function ($item) {
+                return $this->formatDamagedMedicineData($item);
+            });
 
-            if ($request->filled('medicine_id')) {
-                $query->where('medicine_id', $request->medicine_id);
-            }
-
-            // تطبيق الترتيب
-            $sortBy = $request->sort_by ?? 'damaged_at';
-            $sortDirection = $request->sort_direction ?? 'desc';
-            $query->orderBy($sortBy, $sortDirection);
-
-            // الحصول على النتائج مع التقسيم
-            $perPage = $request->per_page ?? 15;
-            $damagedMedicines = $query->paginate($perPage);
-
-            // إضافة إحصائيات إضافية
-            $statistics = [
-                'total_damaged' => $query->sum('quantity_talif'),
-                'total_records' => $query->count(),
-                'by_reason' => $query->select('reason', DB::raw('count(*) as count'))
-                                   ->groupBy('reason')
-                                   ->get()
-            ];
+            // حساب الإحصائيات الأساسية
+            $totalDamaged = $query->sum('quantity_talif');
 
             return response()->json([
-                'status' => 'success',
+                'status' => true,
+                'status_code' => 200,
+                'message' => 'تم جلب الأدوية التالفة بنجاح',
                 'data' => [
-                    'damaged_medicines' => $damagedMedicines,
-                    'statistics' => $statistics,
-                    'filters' => [
-                        'applied' => $request->only([
-                            'search', 'reason', 'date_from', 'date_to',
-                            'sort_by', 'sort_direction', 'per_page', 'medicine_id'
-                        ]),
-                        'available' => [
-                            'reasons' => ['expired', 'damaged', 'storage_issue'],
-                            'sort_columns' => ['damaged_at', 'quantity_talif', 'created_at'],
-                            'sort_directions' => ['asc', 'desc']
-                        ]
-                    ]
+                    'damaged_medicines' => $damagedMedicines->items(),
+                    'total_damaged_quantity' => $totalDamaged
                 ],
-                'status_code' => 200
+                'meta' => [
+                    'current_page' => $damagedMedicines->currentPage(),
+                    'last_page' => $damagedMedicines->lastPage(),
+                    'total' => $damagedMedicines->total()
+                ]
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
-                'status' => 'error',
+                'status' => false,
+                'status_code' => 500,
                 'message' => 'حدث خطأ أثناء جلب البيانات',
-                'error' => $e->getMessage(),
-                'status_code' => 500
+                'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * تطبيق الفلاتر على الاستعلام
+     */
+    private function applyFilters($query, array $filters)
+    {
+        // فلتر البحث
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->whereHas('medicine', function($q) use ($search) {
+                $q->where('medicine_name', 'like', "%{$search}%")
+                  ->orWhere('sentific_name', 'like', "%{$search}%")
+                  ->orWhere('arabic_name', 'like', "%{$search}%")
+                  ->orWhere('bar_code', 'like', $search);
+            });
+        }
+
+        // فلتر السبب
+        if (!empty($filters['reason'])) {
+            $query->where('reason', $filters['reason']);
+        }
+
+        // فلتر التاريخ
+        if (!empty($filters['date_from'])) {
+            $query->whereDate('damaged_at', '>=', $filters['date_from']);
+        }
+
+        if (!empty($filters['date_to'])) {
+            $query->whereDate('damaged_at', '<=', $filters['date_to']);
+        }
+
+        // فلتر الدواء
+        if (!empty($filters['medicine_id'])) {
+            $query->where('medicine_id', $filters['medicine_id']);
+        }
+    }
+
+    /**
+     * تنسيق بيانات الدواء التالف
+     */
+    private function formatDamagedMedicineData($item)
+    {
+        return [
+            'id' => $item->id,
+            'medicine' => [
+                'id' => $item->medicine->id,
+                'name' => $item->medicine->medicine_name,
+                'scientific_name' => $item->medicine->sentific_name,
+                'arabic_name' => $item->medicine->arabic_name,
+                'barcode' => $item->medicine->bar_code
+            ],
+            'quantity_damaged' => $item->quantity_talif,
+            'reason' => $item->reason,
+            'reason_text' => $this->getReasonText($item->reason),
+            'damaged_at' => $item->damaged_at,
+            'notes' => $item->notes
+        ];
+    }
+
+    /**
+     * الحصول على نص السبب
+     */
+    private function getReasonText($reason)
+    {
+        return match($reason) {
+            'expired' => 'منتهي الصلاحية',
+            'damaged' => 'تالف',
+            'storage_issue' => 'مشكلة في التخزين',
+            default => 'غير محدد'
+        };
     }
 
     /**

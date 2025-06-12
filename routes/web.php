@@ -6,7 +6,8 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierNotificationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\MedicineController;
-
+use Illuminate\Support\Facades\Broadcast;
+use App\Events\Pusher;
 use App\Http\Middleware\SupplierAuth;
 use Illuminate\Support\Facades\Route;
 
@@ -68,21 +69,24 @@ Route::middleware('auth')->group(function () {
 });
 
 
+Route::get('/ddddddd', function () {
+    // $data = [
+        // 'message' => 'Hello',
+        // 'time' => now()->toDateTimeString(),
+    // ];
+    // broadcast(new Pusher($data));
+    // return view('pusher_test');
+});
 
-// Route::delete('/suppliers/{id}', [SupplierController::class, 'destroy']);
-// Admin Routes (if needed)
-Route::get('/{page}', [AdminController::class, 'index'])
-    ->where('page', '.*');
+
+// Route::get('/{page}', [AdminController::class, 'index'])
+    // ->where('page', '.*');
 
 /*
-|--------------------------------------------------------------------------
-| Commented Routes (For Future Use)
-|--------------------------------------------------------------------------
-|
-| These routes are currently commented out but may be needed in the future.
-| They are kept here for reference and easy implementation.
-|
 */
+
+
+
 
 // Route::get('users-show', [UserController::class, 'index'])->name('show_user');
 // Route::get('auth/google', [AuthController::class, 'redirectToGoogle']);

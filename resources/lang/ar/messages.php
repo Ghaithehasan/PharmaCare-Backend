@@ -46,4 +46,5 @@ return [
     'supplier_updated' => '✅ تم تحديث المورد بنجاح!',
     'supplier_found' => '✅ تم العثور على المورد!',
     'medicine_created' => '✅ تم إنشاء الدواء بنجاح!',
+    'medicine_deleted' => 'تم جذف الدواء بنجاح'
 ];

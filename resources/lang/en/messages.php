@@ -44,4 +44,6 @@ return [
     'supplier_updated' => '✅ Supplier updated successfully!',
     'supplier_found' => '✅ Supplier found!',
     'medicine_created' => '✅ Medicine successfully created!',
+    'medicine_deleted' => '✅ Medicine successfully deleted!',
+
 ];

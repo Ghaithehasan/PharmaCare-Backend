@@ -9,9 +9,167 @@ use App\Models\Category;
 use App\Models\MedicineAttachment;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+use App\Events\Pusher;
 
 class MedicineController extends Controller
 {
+
+    public function index(Request $request)
+    {
+        // التحقق من صحة المعلمات
+        $validated = $request->validate([
+            'search' => 'nullable|string|max:255',
+            'category_id' => 'nullable|exists:categories,id',
+            'type' => 'nullable|in:package,unit',
+            'quantity_filter' => 'nullable|in:low,out,available',
+            'expiry_filter' => 'nullable|in:expired,expiring_soon,valid'
+        ]);
+
+        // بناء الاستعلام الأساسي
+        $query = Medicine::with(['category'])
+            ->select([
+                'id',
+                'medicine_name',
+                'sentific_name',
+                'arabic_name',
+                'bar_code',
+                'type',
+                'quantity',
+                'alert_quantity',
+                'supplier_price',
+                'people_price',
+                'tax_rate',
+                'expiry_date',
+                'category_id'
+            ]);
+
+        // تطبيق الفلاتر
+        $this->applyFilters($query, $validated);
+
+        // تطبيق الترتيب الافتراضي
+        $query->orderBy('medicine_name', 'asc');
+
+        // تطبيق الصفحات
+        $medicines = $query->paginate(15);
+
+        // تنسيق البيانات
+        $medicines->getCollection()->transform(function ($medicine) {
+            return $this->formatMedicineData($medicine);
+        });
+
+        return response()->json([
+            'status' => true,
+            'status_code' => 200,
+            'message' => 'تم جلب الأدوية بنجاح',
+            'data' => $medicines->items(),
+            'meta' => [
+                'current_page' => $medicines->currentPage(),
+                'last_page' => $medicines->lastPage(),
+                'total' => $medicines->total()
+            ]
+        ]);
+    }
+
+    /**
+     * تطبيق الفلاتر على الاستعلام
+     */
+    private function applyFilters($query, array $filters)
+    {
+        // فلتر البحث
+        if (!empty($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function($q) use ($search) {
+                $q->where('medicine_name', 'like', "%{$search}%")
+                  ->orWhere('sentific_name', 'like', "%{$search}%")
+                  ->orWhere('arabic_name', 'like', "%{$search}%")
+                  ->orWhere('bar_code', 'like', $search);
+            });
+        }
+
+        // فلتر التصنيف
+        if (!empty($filters['category_id'])) {
+            $query->where('category_id', $filters['category_id']);
+        }
+
+        // فلتر النوع
+        if (!empty($filters['type'])) {
+            $query->where('type', $filters['type']);
+        }
+
+        // فلتر الكمية
+        if (!empty($filters['quantity_filter'])) {
+            switch ($filters['quantity_filter']) {
+                case 'low':
+                    $query->where('quantity', '<=', DB::raw('alert_quantity'));
+                    break;
+                case 'out':
+                    $query->where('quantity', 0);
+                    break;
+                case 'available':
+                    $query->where('quantity', '>', 0);
+                    break;
+            }
+        }
+
+        // فلتر تاريخ الصلاحية
+        if (!empty($filters['expiry_filter'])) {
+            $now = Carbon::now();
+            switch ($filters['expiry_filter']){
+                case 'expired':
+                    $query->where('expiry_date', '<', $now);
+                    break;
+                case 'expiring_soon':
+                    $query->where('expiry_date', '>', $now)
+                          ->where('expiry_date', '<=', $now->copy()->addDays(30));
+                    break;
+                case 'valid':
+                    $query->where('expiry_date', '>', $now);
+                    break;
+            }
+        }
+    }
+
+    /**
+     * تنسيق بيانات الدواء
+     */
+    private function formatMedicineData($medicine)
+    {
+        return [
+            'id' => $medicine->id,
+            'name' => $medicine->medicine_name,
+            'scientific_name' => $medicine->sentific_name,
+            'arabic_name' => $medicine->arabic_name,
+            'barcode' => $medicine->bar_code,
+            'type' => $medicine->type,
+            'quantity' => $medicine->quantity,
+            'alert_quantity' => $medicine->alert_quantity,
+            'prices' => [
+                'supplier_price' => $medicine->supplier_price,
+                'people_price' => $medicine->people_price,
+                'tax_rate' => $medicine->tax_rate,
+            ],
+            'expiry_date' => $medicine->expiry_date,
+            'category' => $medicine->category ? [
+                'id' => $medicine->category->id,
+                'name' => $medicine->category->name
+            ] : null,
+            'medicine_form' => $medicine->medicineForm ? [
+                'id' => $medicine->medicineForm->id,
+                'name' => $medicine->medicineForm->name,
+                'description' => $medicine->medicineForm->description
+            ] : null,
+            'status' => [
+                'is_low' => $medicine->quantity <= $medicine->alert_quantity,
+                'is_out' => $medicine->quantity == 0,
+                'is_expired' => $medicine->expiry_date < Carbon::now(),
+                'is_expiring_soon' => $medicine->expiry_date > Carbon::now() && 
+                                    $medicine->expiry_date <= Carbon::now()->addDays(30)
+            ]
+        ];
+    }
+
     public function store(Request $request)
     {
         $validatedData = $request->validate([
@@ -21,6 +179,7 @@ class MedicineController extends Controller
             'bar_code' => 'required|string|unique:medicines,bar_code|max:50',
             'type' => 'required|in:package,unit',
             'category_id' => 'required|exists:categories,id',
+            'medicine_form_id' => 'required|exists:medicine_forms,id',
             'quantity' => 'required|integer|min:1',
             'alert_quantity' => 'nullable|integer|min:1',
             'people_price' => 'required|numeric|min:0',
@@ -60,12 +219,12 @@ class MedicineController extends Controller
             }
         }
 
-        // $medicine->load('attachments');
+        event(new Pusher($medicine));
 
         return response()->json([
             'status' => true,
             'status_code' => 200,
-            'medicine' => $medicine,
+            'medicine' => $this->formatMedicineData($medicine),
             'attachments' => $attachments,
             'message' => 'تم إضافة الدواء والمرفقات بنجاح'
         ], 200);
@@ -104,14 +263,27 @@ class MedicineController extends Controller
 
     public function destroy($id)
     {
+        // 'message' => __('messages.medicine_deleted'),
         $medicine = Medicine::find($id);
         if(!$medicine)
         {
             return response()->json([
                 'status' => false,
+                'message' => 'medecine not found !',
                 'status_code'=>404
             ],404);
         }
+        $alternatives=$medicine->alternatives();
+        $itemRemoved = $medicine->id;
+
+        foreach($alternatives as $alt)
+        {
+            $alt->alternative_ids = array_filter($alt->alternative_ids , fn($item) => $item !== $itemRemoved);
+            $alt->alternative_ids = array_values($alt->alternative_ids);
+            $alt->save();
+
+        }
+
         $medicine->delete();
         return response()->json([
             'status' => true,
@@ -150,8 +322,85 @@ class MedicineController extends Controller
 
     public function showAllAlternatives($medicineId)
     {
-        // Find the medicine
+        // البحث عن الدواء
         $medicine = Medicine::find($medicineId);
+
+        if (!$medicine) {
+            return response()->json([
+                'status' => false,
+                'status_code' => 404,
+                'message' => '⚠️ لم يتم العثور على الدواء!',
+                'errors' => ['medicine' => '❌ هذا الدواء غير موجود في النظام']
+            ], 404);
+        }
+
+        // جلب البدائل
+        $alternatives = $medicine->alternatives()
+            ->with('category')
+            ->orderBy('medicine_name')
+            ->get(['id', 'medicine_name', 'sentific_name', 'bar_code', 'type', 'quantity', 'people_price', 'supplier_price', 'category_id']);
+
+        // إذا لم يكن هناك أي بديل، إظهار رسالة جميلة
+        if ($alternatives->isEmpty()) {
+            return response()->json([
+                'status' => true,
+                'status_code' => 200,
+                'message' => '✅ هذا الدواء لا يحتوي على أي بدائل متاحة حاليًا!',
+                'data' => [
+                    'medicine' => [
+                        'id' => $medicine->id,
+                        'name' => $medicine->medicine_name,
+                        'scientific_name' => $medicine->sentific_name,
+                        'barcode' => $medicine->bar_code,
+                    ],
+                    'alternatives' => []
+                ],
+                'meta' => [
+                    'total_alternatives' => 0
+                ]
+            ], 200);
+        }
+
+        // إعداد بيانات الاستجابة
+        $response = [
+            'status' => true,
+            'status_code' => 200,
+            'message' => '✅ تم جلب الأدوية البديلة بنجاح!',
+            'data' => [
+                'medicine' => [
+                    'id' => $medicine->id,
+                    'scientific_name' => $medicine->sentific_name,
+                    'barcode' => $medicine->bar_code,
+                ],
+                'alternatives' => $alternatives->map(fn ($alternative) => [
+                    'id' => $alternative->id,
+                    'name' => $alternative->medicine_name,
+                    'scientific_name' => $alternative->sentific_name,
+                    'barcode' => $alternative->bar_code,
+                    'type' => $alternative->type,
+                    'quantity' => $alternative->quantity,
+                    'prices' => [
+                        'people_price' => $alternative->people_price,
+                        'supplier_price' => $alternative->supplier_price,
+                    ],
+                    'category' => optional($alternative->category)->only(['name','id']),
+                ]),
+            ],
+            'meta' => [
+                'total_alternatives' => $alternatives->count()
+            ]
+        ];
+
+        return response()->json($response, 200);
+    }
+
+    /**
+     * عرض دواء واحد
+     */
+    public function show($id)
+    {
+        $medicine = Medicine::with(['category', 'attachments'])
+            ->find($id);
 
         if (!$medicine) {
             return response()->json([
@@ -162,54 +411,120 @@ class MedicineController extends Controller
             ], 404);
         }
 
-        // Get alternatives using the model's method
-        $alternatives = $medicine->alternatives()
-            ->with('category')
-            ->select('id', 'medicine_name', 'sentific_name', 'arabic_name', 'bar_code', 'type', 'quantity', 'people_price', 'supplier_price', 'category_id')
-            ->orderBy('medicine_name')
-            ->get();
-
-        // Prepare the response data
-        $response = [
+        return response()->json([
             'status' => true,
             'status_code' => 200,
-            'message' => 'تم جلب الأدوية البديلة بنجاح',
-            'data' => [
-                'medicine' => [
-                    'id' => $medicine->id,
-                    'name' => $medicine->medicine_name,
-                    'scientific_name' => $medicine->sentific_name,
-                    'arabic_name' => $medicine->arabic_name,
-                    'barcode' => $medicine->bar_code,
-                ],
-                'alternatives' => $alternatives->map(function($alternative) {
-                    return [
-                        'id' => $alternative->id,
-                        'name' => $alternative->medicine_name,
-                        'scientific_name' => $alternative->sentific_name,
-                        'arabic_name' => $alternative->arabic_name,
-                        'barcode' => $alternative->bar_code,
-                        'type' => $alternative->type,
-                        'quantity' => $alternative->quantity,
-                        'prices' => [
-                            'people_price' => $alternative->people_price,
-                            'supplier_price' => $alternative->supplier_price,
-                        ],
-                        'category' => $alternative->category ? [
-                            'id' => $alternative->category->id,
-                            'name' => $alternative->category->name
-                        ] : null,
-                    ];
-                }),
-            ],
-            'meta' => [
-                'total_alternatives' => $alternatives->count()
-            ]
-        ];
-
-        return response()->json($response, 200);
+            'message' => 'تم جلب بيانات الدواء بنجاح',
+            'data' => $this->formatMedicineData($medicine)
+        ]);
     }
 
+    /**
+     * عرض جميع الأقسام
+     */
+    public function showCategories()
+    {
+        $categories = Category::select(['id', 'name', 'description'])
+            ->orderBy('name', 'asc')
+            ->get();
+
+        return response()->json([
+            'status' => true,
+            'status_code' => 200,
+            'message' => 'تم جلب الأقسام بنجاح',
+            'data' => $categories->map(function($category) {
+                return [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'description' => $category->description,
+                    'medicines_count' => $category->medicines()->count()
+                ];
+            })
+        ]);
+    }
+
+    /**
+     * عرض الأدوية منخفضة الكمية
+     */
+    public function getLowQuantityMedicines()
+    {
+        $medicines = Medicine::with(['category'])
+            ->where('quantity', '<=', DB::raw('alert_quantity'))
+            ->orderBy('quantity', 'asc')
+            ->get();
+
+        $medicines->transform(function ($medicine) {
+            return $this->formatMedicineData($medicine);
+        });
+
+        return response()->json([
+            'status' => true,
+            'status_code' => 200,
+            'message' => 'تم جلب الأدوية منخفضة الكمية بنجاح',
+            'data' => $medicines
+        ]);
+    }
+
+    /**
+     * تحديث كمية الدواء
+     */
+    public function updateQuantity(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'quantity' => 'required|integer|min:0',
+            'operation' => 'required|in:add,subtract,set'
+        ]);
+
+        $medicine = Medicine::findOrFail($id);
+
+        \Log::info('Starting quantity update', [
+            'medicine_id' => $medicine->id,
+            'current_quantity' => $medicine->quantity,
+            'operation' => $validated['operation'],
+            'new_quantity' => $validated['quantity']
+        ]);
+
+        switch ($validated['operation']) {
+            case 'add':
+                $medicine->quantity += $validated['quantity'];
+                break;
+            case 'subtract':
+                if ($medicine->quantity < $validated['quantity']) {
+                    return response()->json([
+                        'status' => false,
+                        'status_code' => 400,
+                        'message' => 'الكمية المطلوبة غير متوفرة'
+                    ], 400);
+                }
+                $medicine->quantity -= $validated['quantity'];
+                break;
+            case 'set':
+                $medicine->quantity = $validated['quantity'];
+                break;
+        }
+
+        $medicine->save();
+
+        \Log::info('Medicine saved', [
+            'medicine_id' => $medicine->id,
+            'new_quantity' => $medicine->quantity
+        ]);
+
+        // تشغيل الحدث مع تمرير الدواء المحدث
+        event(new Pusher($medicine));
+
+        \Log::info('Event triggered', [
+            'medicine_id' => $medicine->id,
+            'event_name' => 'medicine.updated'
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'status_code' => 200,
+            'message' => 'تم تحديث الكمية بنجاح',
+            'data' => $this->formatMedicineData($medicine)
+        ]);
+    }
 
 }
 

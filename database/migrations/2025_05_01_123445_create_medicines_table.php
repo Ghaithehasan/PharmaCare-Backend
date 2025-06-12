@@ -19,7 +19,9 @@ return new class extends Migration
             $table->string('bar_code');
             $table->enum('type',['package','unit']);
             $table->unsignedBigInteger('category_id');
+            $table->unsignedBigInteger('medicine_form_id')->nullable();
             $table->foreign('category_id')->references('id')->on('categories')->cascadeOnDelete()->cascadeOnUpdate();
+            $table->foreign('medicine_form_id')->references('id')->on('medicine_forms')->nullOnDelete();
             $table->integer('quantity');
             $table->integer('alert_quantity')->default(10);
             $table->decimal('people_price', 8, 2);

@@ -8,6 +8,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\MedicineController;
 use App\Http\Controllers\DamagedMedicineController;
 use App\Http\Controllers\InventoryCountController;
+use App\Http\Controllers\MedicineFormController;
 use App\Http\Middleware\ApiLocalization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -48,7 +49,17 @@ Route::get('show-damaged-medicine', [DamagedMedicineController::class, 'searchBy
 
 Route::post('add-damaged-medicine', [DamagedMedicineController::class, 'store'])->middleware([ApiLocalization::class]);
 
+Route::get('show-all-damaged-medicines' , [DamagedMedicineController::class, 'index'])->middleware([ApiLocalization::class]);
+
+Route::get('medicines/categories', [MedicineController::class, 'showCategories'])->middleware([ApiLocalization::class]);
+
+Route::get('medicines/low-quantity', [MedicineController::class, 'getLowQuantityMedicines'])->middleware([ApiLocalization::class]);
+
+Route::post('medicines/{id}/update-quantity', [MedicineController::class, 'updateQuantity'])->middleware([ApiLocalization::class]);
+
 Route::apiResource('medicines' , MedicineController::class)->middleware([ApiLocalization::class]);
+
+// Route::get('medecines-with-low-quantity')
 
 Route::post('add-category', [MedicineController::class, 'storeCategory'])->middleware([ApiLocalization::class]);
 
@@ -59,62 +70,8 @@ Route::get('show-supplier-details/{id}',[SupplierController::class , 'ShowSuppli
 
 Route::get('show-all-permissions' , [RoleController::class , 'getAllPermissions'])->middleware([ApiLocalization::class]);
 
+// مسارات الأشكال الدوائية
+Route::get('medicine-forms', [MedicineFormController::class, 'index'])->middleware([ApiLocalization::class]);
+Route::post('medicine-forms', [MedicineFormController::class, 'store'])->middleware([ApiLocalization::class]);
+Route::delete('medicine-forms/{id}', [MedicineFormController::class, 'destroy'])->middleware([ApiLocalization::class]);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// Route::get('check-token' , [AuthController::class , 'check'])->middleware('auth:api');
