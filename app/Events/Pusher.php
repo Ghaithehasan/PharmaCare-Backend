@@ -10,6 +10,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
+use App\Models\Medicine;
 
 class Pusher implements ShouldBroadcastNow
 {
@@ -19,12 +20,12 @@ class Pusher implements ShouldBroadcastNow
      * Create a new event instance.
      */
 
-     public $data;
-    public function __construct($data)
+     public $medicine;
+    public function __construct(Medicine $medicine)
     {
         // dd();
 
-        $this->data=$data;
+        $this->medicine=$medicine;
     }
 
 
@@ -38,6 +39,6 @@ class Pusher implements ShouldBroadcastNow
     {
         // dd();
 
-        return 'my-event';
+        return 'low-stock-event';
     }
 }

@@ -12,6 +12,9 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Events\Pusher;
+use Picqer\Barcode\BarcodeGeneratorPNG;
+use Picqer\Barcode\BarcodeGeneratorHTML;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class MedicineController extends Controller
 {
@@ -180,6 +183,7 @@ class MedicineController extends Controller
             'type' => 'required|in:package,unit',
             'category_id' => 'required|exists:categories,id',
             'medicine_form_id' => 'required|exists:medicine_forms,id',
+            'brand_id' => 'required|exists:brands,id',
             'quantity' => 'required|integer|min:1',
             'alert_quantity' => 'nullable|integer|min:1',
             'people_price' => 'required|numeric|min:0',
@@ -322,6 +326,7 @@ class MedicineController extends Controller
 
     public function showAllAlternatives($medicineId)
     {
+        // dd();
         // البحث عن الدواء
         $medicine = Medicine::find($medicineId);
 
@@ -505,10 +510,7 @@ class MedicineController extends Controller
 
         $medicine->save();
 
-        \Log::info('Medicine saved', [
-            'medicine_id' => $medicine->id,
-            'new_quantity' => $medicine->quantity
-        ]);
+
 
         // تشغيل الحدث مع تمرير الدواء المحدث
         event(new Pusher($medicine));
@@ -524,6 +526,23 @@ class MedicineController extends Controller
             'message' => 'تم تحديث الكمية بنجاح',
             'data' => $this->formatMedicineData($medicine)
         ]);
+    }
+
+
+
+    public function generate_barcode($medicine_id)
+    {
+        $quantity=request()->quantity;
+        $medicine = Medicine::findOrFail($medicine_id);
+        $barcode = base64_encode((new BarcodeGeneratorPNG())->getBarcode($medicine->bar_code, BarcodeGeneratorPNG::TYPE_CODE_128));
+    
+        $pdf = Pdf::loadView('barcode', compact('medicine', 'barcode', 'quantity'))
+                  ->setPaper('A4', 'portrait')
+                  ->setOptions(['isHtml5ParserEnabled' => true, 'isPhpEnabled' => true]);
+    
+        return response($pdf->output(), 200)
+               ->header('Content-Type', 'application/pdf')
+               ->header('Content-Disposition', 'inline; filename="medicine_labels.pdf"');
     }
 
 }

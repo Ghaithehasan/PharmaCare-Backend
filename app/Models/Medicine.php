@@ -19,8 +19,8 @@ class Medicine extends Model
         'bar_code',
         'people_price',
         'tax_rate',
-        'expiry_date',
-        'last_notification_date',
+        // 'expiry_date',
+        'brand_id',
         'alternative_ids'
     ];
 
@@ -57,7 +57,7 @@ class Medicine extends Model
     // الحصول على الأدوية البديلة
     public function alternatives()
     {
-        return Medicine::whereIn('id', $this->alternative_ids ?? [])->get();
+        return Medicine::whereIn('id', $this->alternative_ids ?? []);
     }
 
     // إضافة دواء بديل (علاقة أحادية الاتجاه)
@@ -114,6 +114,10 @@ class Medicine extends Model
                       ->get();
     }
 
+    public function brand()
+    {
+        return $this->belongTo(Brand::class);
+    }
 
     
 }

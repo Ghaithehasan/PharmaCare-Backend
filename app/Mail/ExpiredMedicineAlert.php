@@ -20,10 +20,12 @@ class ExpiredMedicineAlert extends Mailable
      */
     public $medicine;
     public $notificationType;
+    public $expire_date;
 
-    public function __construct(Medicine $medicine, string $notificationType)
+    public function __construct(Medicine $medicine, $expire_date , string $notificationType)
     {
         $this->medicine = $medicine;
+        $this->expire_date=$expire_date;
         $this->notificationType = $notificationType;
     }
 
@@ -42,16 +44,16 @@ class ExpiredMedicineAlert extends Mailable
      */
     public function content(): Content
     {
-        $expiryDate = Carbon::parse($this->medicine->expiry_date);
-        
+        $expire_date = Carbon::parse($this->expire_date);
+        // dd($expire_date);
         return new Content(
             view: 'mail.expired_medicine_alert',
             with: [
                 'medicine_name' => $this->medicine->medicine_name,
                 'quantity' => $this->medicine->quantity,
                 'category' => $this->medicine->category->name,
-                'expiry_date' => $expiryDate->format('Y-m-d'),
-                'expiry_date_diffForHumans' => $expiryDate->diffForHumans(),
+                'expiry_date' => $expire_date->format('Y-m-d'),
+                'expiry_date_diffForHumans' => $expire_date->diffForHumans(),
                 'notificationType' => $this->notificationType,
                 'supportEmail' => 'support@gmail.com',
             ],

@@ -6,6 +6,7 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\MedicineController;
+use App\Http\Controllers\BrandController;
 use App\Http\Controllers\DamagedMedicineController;
 use App\Http\Controllers\InventoryCountController;
 use App\Http\Controllers\MedicineFormController;
@@ -59,6 +60,8 @@ Route::post('medicines/{id}/update-quantity', [MedicineController::class, 'updat
 
 Route::apiResource('medicines' , MedicineController::class)->middleware([ApiLocalization::class]);
 
+Route::apiResource('brands' , BrandController::class)->middleware([ApiLocalization::class]);
+
 // Route::get('medecines-with-low-quantity')
 
 Route::post('add-category', [MedicineController::class, 'storeCategory'])->middleware([ApiLocalization::class]);
@@ -69,6 +72,9 @@ Route::get('generaite-barcode', [MedicineController::class, 'generateNumericBarc
 Route::get('show-supplier-details/{id}',[SupplierController::class , 'ShowSupplierDetails'])->middleware([ApiLocalization::class]);
 
 Route::get('show-all-permissions' , [RoleController::class , 'getAllPermissions'])->middleware([ApiLocalization::class]);
+
+Route::get('bar-code/{id}' , [MedicineController::class , 'generate_barcode']);
+
 
 // مسارات الأشكال الدوائية
 Route::get('medicine-forms', [MedicineFormController::class, 'index'])->middleware([ApiLocalization::class]);

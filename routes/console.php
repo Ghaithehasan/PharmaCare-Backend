@@ -8,4 +8,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('medicines:check-stock')->everyFifteenSeconds();
-Schedule::command('medicines:check-expired')->everyMinute();
+Schedule::command('medicines:check-expired')->everyFifteenSeconds();

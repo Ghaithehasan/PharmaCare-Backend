@@ -75,7 +75,7 @@ Route::get('/ddddddd', function () {
         // 'time' => now()->toDateTimeString(),
     // ];
     // broadcast(new Pusher($data));
-    // return view('pusher_test');
+    return view('pusher_test');
 });
 
 
@@ -84,6 +84,7 @@ Route::get('/ddddddd', function () {
 
 /*
 */
+
 
 
 

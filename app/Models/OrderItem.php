@@ -15,6 +15,8 @@ class OrderItem extends Model
         'quantity',
         'unit_price',
         'total_price',
+        'expiry_date',
+        'last_notification_date'
     ];
 
     protected $casts = [
