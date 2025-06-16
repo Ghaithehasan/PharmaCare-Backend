@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\MedicineController;
@@ -61,6 +62,8 @@ Route::post('medicines/{id}/update-quantity', [MedicineController::class, 'updat
 Route::apiResource('medicines' , MedicineController::class)->middleware([ApiLocalization::class]);
 
 Route::apiResource('brands' , BrandController::class)->middleware([ApiLocalization::class]);
+
+Route::apiResource('orders',OrderController::class)->middleware([ApiLocalization::class]);
 
 // Route::get('medecines-with-low-quantity')
 

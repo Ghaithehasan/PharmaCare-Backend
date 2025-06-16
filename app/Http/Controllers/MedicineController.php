@@ -187,7 +187,7 @@ class MedicineController extends Controller
             'quantity' => 'required|integer|min:1',
             'alert_quantity' => 'nullable|integer|min:1',
             'people_price' => 'required|numeric|min:0',
-            'expiry_date' => 'required|date',
+            // 'expiry_date' => 'required|date',
             'supplier_price' => 'required|numeric|min:0',
             'tax_rate' => 'required|numeric|min:0|max:100',
             'attachments.*' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',

@@ -14,12 +14,12 @@ class Order extends Model
         'order_number',
         'order_date',
         'status',
-        'total_amount',
+        // 'total_amount',
     ];
 
     protected $casts = [
         'order_date' => 'date',
-        'total_amount' => 'decimal:2',
+        // 'total_amount' => 'decimal:2',
     ];
 
     public function supplier()
@@ -32,5 +32,10 @@ class Order extends Model
         return $this->belongsToMany(Medicine::class, 'order_items')
                     ->withPivot('quantity', 'unit_price', 'total_price')
                     ->withTimestamps();
+    }
+
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class);
     }
 }

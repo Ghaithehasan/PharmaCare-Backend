@@ -16,12 +16,12 @@ return new class extends Migration
             $table->foreignId('supplier_id')->constrained('suppliers')->onDelete('cascade'); // ربط الإشعار بالمورد
             $table->string('notification_type'); // نوع الإشعار (دفعة متأخرة، نقص مخزون، إلخ)
             $table->text('message'); // نص الإشعار
+            $table->json('data')->nullable(); // لتخزين البيانات الإضافية مثل تفاصيل الطلب
             $table->boolean('is_read')->default(false); // حالة القراءة
+            $table->timestamp('read_at')->nullable();
             $table->timestamps();
         });
     }
-
-
 
     /**
      * Reverse the migrations.
