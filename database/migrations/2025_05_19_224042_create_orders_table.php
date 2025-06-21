@@ -16,6 +16,8 @@ return new class extends Migration
             $table->foreignId('supplier_id')->constrained()->onDelete('cascade');
             $table->string('order_number')->unique();
             $table->date('order_date');
+            $table->text('note')->nullable();
+            $table->date('delevery_date')->nullable();
             $table->enum('status', ['pending', 'confirmed', 'completed', 'cancelled'])->default('pending');
             $table->timestamps();
         });

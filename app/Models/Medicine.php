@@ -8,7 +8,7 @@ class Medicine extends Model
 {
     protected $fillable = [
         'medicine_name',
-        'scientific_name',
+        'sentific_name',
         'arabic_name',
         'category_id',
         'medicine_form_id',

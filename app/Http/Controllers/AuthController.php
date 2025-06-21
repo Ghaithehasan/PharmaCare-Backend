@@ -26,11 +26,14 @@ class AuthController extends Controller
             'email' => 'required|email',
             'password' => 'required|min:8|max:15'
         ]);
+        // dd();
 
         if (!$token = JWTAuth::attempt($credentials)) {
             return response()->json(['message' => __('messages.invalid_credentials') , 'status' => 'error' , 'error_code' => 401], 401);
         }
-        $user = auth()->user();
+        // dd();
+        // $user = auth()->user();
+        $user = JWTAuth::user();
         return response()->json([
             'status' => 'success',
             'message' => __('messages.login_success'),

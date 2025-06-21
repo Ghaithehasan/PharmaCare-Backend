@@ -13,12 +13,14 @@ class Order extends Model
         'supplier_id',
         'order_number',
         'order_date',
+        'note',
         'status',
-        // 'total_amount',
+        'delevery_date',
     ];
 
     protected $casts = [
         'order_date' => 'date',
+        'delevery_date'=>'date'
         // 'total_amount' => 'decimal:2',
     ];
 
@@ -37,5 +39,21 @@ class Order extends Model
     public function orderItems()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    /**
+     * Calculate the total amount of the order
+     */
+    public function calculateTotal()
+    {
+        return $this->orderItems()->sum('total_price');
+    }
+
+    /**
+     * Get the total amount of the order
+     */
+    public function getTotalAttribute()
+    {
+        return $this->calculateTotal();
     }
 }

@@ -533,6 +533,7 @@ class MedicineController extends Controller
     public function generate_barcode($medicine_id)
     {
         $quantity=request()->quantity;
+        // dd($quantity);
         $medicine = Medicine::findOrFail($medicine_id);
         $barcode = base64_encode((new BarcodeGeneratorPNG())->getBarcode($medicine->bar_code, BarcodeGeneratorPNG::TYPE_CODE_128));
     

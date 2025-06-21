@@ -3,13 +3,13 @@
 <aside class="app-sidebar sidebar-scroll">
     <div class="main-sidebar-header active">
         <a class="desktop-logo logo-light active" href="{{ url('/' . ($page = 'index')) }}"><img
-                src="{{ URL::asset('assets/img/brand/logo.png') }}" class="main-logo" alt="logo"></a>
+                src="{{ URL::asset('assets/img/brand/logo.jpeg') }}" class="main-logo" alt="logo"></a>
         <a class="desktop-logo logo-dark active" href="{{ url('/' . ($page = 'index')) }}"><img
-                src="{{ URL::asset('assets/img/brand/logo-white.png') }}" class="main-logo dark-theme" alt="logo"></a>
+                src="{{ URL::asset('assets/img/brand/logo.jpeg') }}" class="main-logo dark-theme" alt="logo"></a>
         <a class="logo-icon mobile-logo icon-light active" href="{{ url('/' . ($page = 'index')) }}"><img
-                src="{{ URL::asset('assets/img/brand/favicon.png') }}" class="logo-icon" alt="logo"></a>
+                src="{{ URL::asset('assets/img/brand/logo.jpeg') }}" class="logo-icon" alt="logo"></a>
         <a class="logo-icon mobile-logo icon-dark active" href="{{ url('/' . ($page = 'index')) }}"><img
-                src="{{ URL::asset('assets/img/brand/favicon-white.png') }}" class="logo-icon dark-theme"
+                src="{{ URL::asset('assets/img/brand/logo.jpeg') }}" class="logo-icon dark-theme"
                 alt="logo"></a>
     </div>
     <div class="main-sidemenu">
@@ -109,7 +109,7 @@
             {{-- @endcan --}}
 
             {{-- @can('المستخدمين') --}}
-                <li class="side-item side-item-category">المستخدمين</li>
+                <li class="side-item side-item-category">قائمة الطلبات</li>
                 <li class="slide">
                     <a class="side-menu__item" data-toggle="slide" href="{{ url('/' . ($page = '#')) }}"><svg
                             xmlns="http://www.w3.org/2000/svg" class="side-menu__icon" viewBox="0 0 24 24">
@@ -117,14 +117,19 @@
                             <path d="M15 11V4H4v8.17l.59-.58.58-.59H6z" opacity=".3" />
                             <path
                                 d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-5 7c.55 0 1-.45 1-1V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10zM4.59 11.59l-.59.58V4h11v7H5.17l-.58.59z" />
-                        </svg><span class="side-menu__label">المستخدمين</span><i class="angle fe fe-chevron-down"></i></a>
+                        </svg><span class="side-menu__label">الطلبات</span><i class="angle fe fe-chevron-down"></i></a>
                     <ul class="slide-menu">
                         {{-- @can('قائمة المستخدمين') --}}
-                            <li><a class="slide-item" href="{{ url('/' . ($page = 'users')) }}">قائمة المستخدمين</a></li>
+                            <li><a class="slide-item" href="{{ route('supplier.orders.show_all_order') }}">جميع الطلبات</a></li>
                         {{-- @endcan --}}
 
                         {{-- @can('صلاحيات المستخدمين') --}}
-                            <li><a class="slide-item" href="{{ url('/' . ($page = 'roles')) }}">صلاحيات المستخدمين</a></li>
+                            <li><a class="slide-item" href="{{ route('supplier.orders.index') }}">الطلبات المعلقة</a></li>
+
+                            <li><a class="slide-item" href="{{ route('supplier.orders.accepted') }}">الطلبات المقبولة</a></li>
+
+                            <li><a class="slide-item" href="{{ route('supplier.orders.show_canceled_orders') }}">الطلبات الملغية</a></li>
+
                         {{-- @endcan --}}
                     </ul>
                 </li>
@@ -157,15 +162,17 @@
                                         d="M17.5,15.83c0.88,0,1.73,0.09,2.5,0.26v-1.52c-0.79-0.15-1.64-0.24-2.5-0.24c-1.28,0-2.46,0.16-3.5,0.47v1.57 C14.99,16.02,16.18,15.83,17.5,15.83z" />
                                 </g>
                             </g>
-                        </svg><span class="side-menu__label">الاعدادات</span><i class="angle fe fe-chevron-down"></i></a>
+                        </svg><span class="side-menu__label">المدفوعات</span><i class="angle fe fe-chevron-down"></i></a>
                     <ul class="slide-menu">
                         {{-- @can('الاقسام') --}}
-                            <li><a class="slide-item" href="{{ url('/' . ($page = 'sections')) }}">الاقسام</a></li>
+                            <li><a class="slide-item" href="{{ url('/' . ($page = 'sections')) }}">قائمة المدفوعات</a></li>
                         {{-- @endcan --}}
 
                         {{-- @can('المنتجات') --}}
-                            <li><a class="slide-item" href="{{ url('/' . ($page = 'products')) }}">المنتجات</a></li>
+                            <li><a class="slide-item" href="{{ url('/' . ($page = 'products')) }}">قائمة المدفوع جزئيا</a></li>
                         {{-- @endcan --}}
+                    
+
                     </ul>
                 </li>
             {{-- @endcan --}}

@@ -6,6 +6,7 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierNotificationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\MedicineController;
+use App\Http\Controllers\SupplierOrderController;
 use Illuminate\Support\Facades\Broadcast;
 use App\Events\Pusher;
 use App\Http\Middleware\SupplierAuth;
@@ -53,13 +54,28 @@ Route::middleware('auth')->group(function () {
             ->name('delete.account');
         
         // Notifications
-        Route::prefix('notifications')->name('notifications.')->group(function () {
+        Route::prefix('notifications')->name('notifications.')->group(function () {//supplier.notifications.show
             Route::get('/', [SupplierNotificationController::class, 'show_all_notifications'])
                 ->name('index');
             Route::post('/{id}/mark-as-read', [SupplierNotificationController::class, 'markAsRead'])
                 ->name('mark-as-read');
             Route::post('/mark-all-as-read', [SupplierNotificationController::class, 'markAllAsRead'])
                 ->name('mark-all-as-read');
+            Route::get('/{id}' , [SupplierNotificationController::class, 'show'])->name('show');
+        });
+
+        Route::prefix('orders')->name('orders.')->group(function(){
+            Route::get('new-orders',[SupplierOrderController::class,'index'])->name('index');
+            Route::post('cancelled-order',[SupplierOrderController::class,'cancelled'])->name('cancelled');
+            Route::get('print-order/{id}',[ SupplierOrderController::class, 'PrintOrder']);
+            Route::post('accept-order',[SupplierOrderController::class, 'AcceptOrder'])->name('accept');
+            Route::get('accepted-orders',[SupplierOrderController::class,'accepted'])->name('accepted');
+            Route::post('update-order',[SupplierOrderController::class, 'updateOrder'])->name('update');
+            Route::get('show-orders-cancelled',[SupplierOrderController::class, 'show_cancel_orders'])->name('show_canceled_orders');
+            Route::get('show-all-orders',[SupplierOrderController::class, 'show_All_orders'])->name('show_all_order');
+            Route::get('exports_orders',[ SupplierOrderController::class, 'ExportOrder'])->name('exports_orders');
+        
+        
         });
     });
 
@@ -79,13 +95,10 @@ Route::get('/ddddddd', function () {
 });
 
 
-// Route::get('/{page}', [AdminController::class, 'index'])
-    // ->where('page', '.*');
-
-/*
-*/
 
 
+Route::get('Accept-the-order/{id}',[SupplierOrderController::class, 'ShowPageComplete'])->name('coniferm');
+Route::post('complete-the-order/{id}',[SupplierOrderController::class, 'completeOrder'])->name('complete');
 
 
 

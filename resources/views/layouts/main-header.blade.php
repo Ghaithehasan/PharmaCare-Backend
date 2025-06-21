@@ -77,6 +77,7 @@
 										@if($unreadNotifications->count() > 0)
 											@foreach($unreadNotifications as $notification)
 												<div class="notification-item" style="transition: all 0.3s ease;">
+													<a href="{{ route('supplier.notifications.show', $notification->id) }}" class="text-decoration-none">
 													<div class="d-flex align-items-center p-3 notification-content" style="border-bottom: 1px solid rgba(0,0,0,0.05); position: relative; overflow: hidden;">
 														<div class="notifyimg" style="width: 45px; height: 45px; border-radius: 12px; background: linear-gradient(45deg, #3498db, #2ecc71); display: flex; align-items: center; justify-content: center; margin-left: 15px; transition: all 0.3s ease;">
 															<i class="la la-bell text-white" style="font-size: 1.2rem; transition: transform 0.3s ease;"></i>
@@ -96,6 +97,7 @@
 															</form>
 														</div>
 													</div>
+													</a>
 												</div>
 											@endforeach
 
@@ -116,6 +118,7 @@
 											@endif
 											@foreach($recentReadNotifications as $notification)
 												<div class="notification-item" style="transition: all 0.3s ease; opacity: 0.7;">
+													<a href="{{ route('supplier.notifications.show', $notification->id) }}" class="text-decoration-none">
 													<div class="d-flex align-items-center p-3 notification-content" style="border-bottom: 1px solid rgba(0,0,0,0.05); position: relative; overflow: hidden;">
 														<div class="notifyimg" style="width: 45px; height: 45px; border-radius: 12px; background: linear-gradient(45deg, #95a5a6, #7f8c8d); display: flex; align-items: center; justify-content: center; margin-left: 15px; transition: all 0.3s ease;">
 															<i class="la la-check-circle text-white" style="font-size: 1.2rem; transition: transform 0.3s ease;"></i>
@@ -127,6 +130,7 @@
 															</div>
 														</div>
 													</div>
+													</a>
 												</div>
 											@endforeach
 										@endif

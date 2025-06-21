@@ -36,25 +36,14 @@ class OrderEmailListener
         // حساب إجمالي قيمة الطلب
         $totalAmount = collect($medicines)->sum('total_price');
 
-        // إنشاء رسالة إشعار تفصيلية
-        $notificationMessage = sprintf(
-            "طلبية جديدة #%s\n" .
-            "• عدد الأدوية: %d\n" .
-            "• القيمة الإجمالية: %s ريال\n" .
-            "• تاريخ الطلب: %s\n" .
-            "يرجى مراجعة التفاصيل في لوحة التحكم",
-            $order->order_number,
-            $totalMedicines,
-            number_format($totalAmount, 2),
-            Carbon::parse($order->created_at)->format('Y-m-d H:i')
-        );
+        $notificationMessage = "تم استلام طلبية جديدة برقم #" . $order->order_number;
         $notificationData = [
             'order_id' => $order->id,
             'order_number' => $order->order_number,
             'total_amount' => $totalAmount,
             'total_medicines' => $totalMedicines,
             'status' => $order->status,
-            'medicines' => $medicines->map(function($medicine) {
+            'medicines' => collect($medicines)->map(function($medicine) {
                 return [
                     'name' => $medicine['medicine_name'],
                     'quantity' => $medicine['quantity'],
@@ -68,7 +57,7 @@ class OrderEmailListener
             'supplier_id' => $order->supplier->id,
             'notification_type' => 'new_order',
             'message' => $notificationMessage,
-            'data' => $notificationData,
+            'data' => json_encode($notificationData, JSON_UNESCAPED_UNICODE),
             'is_read' => false,
         ]);
 

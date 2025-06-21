@@ -47,7 +47,7 @@ class SupplierNotificationController extends Controller
         $notification = SupplierNotification::findOrFail($id);
         
         $notification->update(['is_read' => true]);
-        
+        $notification->update(['read_at'=> now()]);
         if (request()->ajax()) {
             return response()->json([
                 'success' => true,
@@ -62,7 +62,9 @@ class SupplierNotificationController extends Controller
     public function markAllAsRead()
     {
         $supplier = auth()->user();
+        $supplier->notifications()->where('is_read', false)->update(['read_at' => now()]);
         $supplier->notifications()->where('is_read', false)->update(['is_read' => true]);
+        // $supplier
         
         if (request()->ajax()) {
             return response()->json([
@@ -73,5 +75,14 @@ class SupplierNotificationController extends Controller
         }
         
         return redirect()->back()->with('success', 'تم تحديد جميع الإشعارات كمقروءة بنجاح');
+    }
+
+
+
+    public function show($id)
+    {
+        $notification = auth()->user()->notifications()->findOrFail($id);
+        $supplier = auth()->user();
+        return view('suppliers.notification_details', compact('notification','supplier'));
     }
 }

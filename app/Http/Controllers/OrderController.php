@@ -18,6 +18,8 @@ class OrderController extends Controller
         $validated = $request->validate([
             'supplier_id' => 'required|exists:suppliers,id',
             'order_date' => 'required|date',
+            'note' => 'nullable|string',
+            'delevery_date' => 'nullable|date',
             'items' => 'required|array|min:1',
             'items.*.medicine_id' => 'required|exists:medicines,id',
             'items.*.quantity' => 'required|integer|min:1',
@@ -28,7 +30,7 @@ class OrderController extends Controller
             'payment.payment_method' => 'required|in:cash,bank_transfer,credit',
             'payment.amount_paid' => 'nullable|numeric|min:0'
         ]);
-        // dd($request->items[0]);
+        // dd($request->n);
 
         try {
             DB::beginTransaction();
@@ -41,6 +43,8 @@ class OrderController extends Controller
                 'supplier_id' => $validated['supplier_id'],
                 'order_number' => $orderNumber,
                 'order_date' => $validated['order_date'],
+                'note' => $validated['note'],
+                'delevery_date' => $validated['delevery_date'] ?? null,
                 'status' => 'pending'
             ]);
 

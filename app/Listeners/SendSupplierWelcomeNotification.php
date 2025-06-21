@@ -26,9 +26,19 @@ class SendSupplierWelcomeNotification
     {
         $notification = SupplierNotification::create([
             'supplier_id' => $event->supplier->id,
-            'notification_type' => 'welcome_supplier_message',
+            'notification_type' => 'welcome',
             'message' => "مرحبًا {$event->supplier->company_name}! نحن سعداء بالتعامل معك.",
-            'is_read' => false, // الإشعار غير مقروء عند إنشائه
+            'data' => json_encode([
+                'message' => "مرحبًا {$event->supplier->company_name}! نحن سعداء بالتعامل معك.",
+                'features' => [
+                    'إدارة الطلبيات بسهولة',
+                    'متابعة المخزون بشكل مباشر',
+                    'تقارير مالية مفصلة',
+                    'دعم فني على مدار الساعة',
+                    'تحديثات مستمرة للنظام'
+                ]
+            ],JSON_UNESCAPED_UNICODE),
+            'is_read' => false,
         ]);
 
         // ✅ 2️⃣ إرسال إشعار ترحيبي عبر البريد الإلكتروني
