@@ -4,6 +4,18 @@
 @stop
 @section('css')
 <link href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.3.0/css/font-awesome.css" rel="stylesheet" type='text/css'>
+<link 
+  href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.3.0/css/font-awesome.css" 
+  rel="stylesheet"  type='text/css'>
+    <!-- Internal Data table css -->
+    <link href="{{ URL::asset('assets/plugins/datatable/css/dataTables.bootstrap4.min.css') }}" rel="stylesheet" />
+    <link href="{{ URL::asset('assets/plugins/datatable/css/buttons.bootstrap4.min.css') }}" rel="stylesheet">
+    <link href="{{ URL::asset('assets/plugins/datatable/css/responsive.bootstrap4.min.css') }}" rel="stylesheet" />
+    <link href="{{ URL::asset('assets/plugins/datatable/css/jquery.dataTables.min.css') }}" rel="stylesheet">
+    <link href="{{ URL::asset('assets/plugins/datatable/css/responsive.dataTables.min.css') }}" rel="stylesheet">
+    <link href="{{ URL::asset('assets/plugins/select2/css/select2.min.css') }}" rel="stylesheet">
+    <!--Internal   Notify -->
+    <link href="{{ URL::asset('assets/plugins/notify/css/notifIt.css') }}" rel="stylesheet" />
 <style>
     body { background: #f6f8fa; }
     .page-header {
@@ -208,9 +220,22 @@
     <!-- breadcrumb -->
 @endsection
 @section('content')
+@if (session()->has('update_expiry'))
+        <script>
+            window.onload = function() {
+                notif({
+                    msg: "{{ session('update_expiry') }}",
+                    type: "success"
+                })
+            }
+        </script>
+    @endif
+
 
 <div class="row">
+
     <div class="col-xl-12">
+    
         @if($orders->count() > 0)
             @foreach($orders as $order)
                 <div class="modern-order-card">
@@ -284,6 +309,40 @@
                             </div>
                         </div>
                     @endif
+                    <!-- إضافة جدول الأصناف مع إدخال تاريخ الصلاحية -->
+                    @if($order->orderItems && $order->orderItems->count())
+                        <div class="table-responsive mt-3">
+                            <table class="table table-bordered table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>اسم الدواء</th>
+                                        <th>الكمية</th>
+                                        <th>تاريخ الصلاحية</th>
+                                        <th>حفظ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($order->orderItems as $item)
+                                        <tr>
+                                            <td>{{ $item->medicine->medicine_name ?? '-' }}</td>
+                                            <td>{{ $item->quantity }}</td>
+                                            <td>
+                                                <form method="POST" action="{{ route('supplier.orders.update_expiry', $item->id) }}" class="d-flex align-items-center">
+                                                    @csrf
+                                                    <input type="date" name="expiry_date" class="form-control" value="{{ $item->expiry_date ? \Carbon\Carbon::parse($item->expiry_date)->format('Y-m-d') : '' }}" required>
+                                            </td>
+                                            <td>
+                                                    <button type="submit" class="btn btn-success btn-sm">
+                                                        <i class="fas fa-save"></i> حفظ
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
                 </div>
             @endforeach
         @else
@@ -327,31 +386,6 @@
 
     <script>
         // تحديث حالة المنتج
-        $('.item-status').change(function() {
-            var itemId = $(this).data('item-id');
-            var status = $(this).val();
-            
-            $.ajax({
-                url: '/supplier/orders/update-item-status',
-                method: 'POST',
-                data: {
-                    _token: '{{ csrf_token() }}',
-                    item_id: itemId,
-                    status: status
-                },
-                success: function(response) {
-                    notif({
-                        msg: "تم تحديث حالة المنتج بنجاح",
-                        type: "success"
-                    });
-                },
-                error: function(xhr) {
-                    notif({
-                        msg: "حدث خطأ أثناء تحديث حالة المنتج",
-                        type: "error"
-                    });
-                }
-            });
-        });
+       
     </script>
 @endsection 

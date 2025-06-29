@@ -4,9 +4,11 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierNotificationController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\MedicineController;
 use App\Http\Controllers\SupplierOrderController;
+use App\Http\Controllers\InvoicesController;
 use Illuminate\Support\Facades\Broadcast;
 use App\Events\Pusher;
 use App\Http\Middleware\SupplierAuth;
@@ -74,9 +76,40 @@ Route::middleware('auth')->group(function () {
             Route::get('show-orders-cancelled',[SupplierOrderController::class, 'show_cancel_orders'])->name('show_canceled_orders');
             Route::get('show-all-orders',[SupplierOrderController::class, 'show_All_orders'])->name('show_all_order');
             Route::get('exports_orders',[ SupplierOrderController::class, 'ExportOrder'])->name('exports_orders');
-        
+            Route::get('completed-order',[ SupplierOrderController::class, 'show_completed_orders'])->name('show_completed_order');
+            Route::post('/supplier/orders/update-expiry/{item}', [SupplierOrderController::class, 'updateExpiry'])->name('update_expiry');
         
         });
+
+        // Invoices Routes
+        Route::prefix('invoices')->name('invoices.')->group(function(){
+            Route::get('/', [InvoicesController::class, 'index'])->name('index');
+            Route::get('show/{id}', [InvoicesController::class, 'show'])->name('show');
+            Route::get('show-pdf/{id}', [InvoicesController::class, 'show_pdf_invoice'])->name('show-pdf');
+            // Route::get('download/{id}', [InvoicesController::class, 'download'])->name('download');
+            Route::post('update-status/{id}', [InvoicesController::class, 'updateStatus'])->name('update-status');
+            Route::get('unpaid', [InvoicesController::class, 'show_un_paid_invoices'])->name('unpaid');
+            Route::get('paid', [InvoicesController::class, 'show_paid_invoices'])->name('paid');
+            Route::get('partially', [InvoicesController::class, 'partially'])->name('partially');
+            Route::post('add-to-archive/{id}',[InvoicesController::class, 'add_to_archive'])->name('archive');
+            Route::get('show-archive-invoices',[InvoicesController::class, 'show_archive_invoice'])->name('show_archive');
+        });
+
+        Route::prefix('payments')->name('payments.')->group(function(){
+            Route::get('show-all-payments',[PaymentController::class,'show_all_payments'])->name('all_payments');
+            Route::get('show-all-pending-payments',[PaymentController::class,'show_all_pending_payments'])->name('pending_payments');
+            Route::get('show-all-confirmed-payments',[PaymentController::class,'show_all_confirmed_payments'])->name('confirmed_payments');
+            Route::get('show-all-rejected-payments',[PaymentController::class,'show_all_rejected_payments'])->name('rejected_payments');
+            
+            Route::post('chang-status/{id}',[PaymentController::class,'change_payment_status'])->name('update_status');
+        });
+
+
+
+
+
+
+
     });
 
     // Logout
@@ -91,7 +124,8 @@ Route::get('/ddddddd', function () {
         // 'time' => now()->toDateTimeString(),
     // ];
     // broadcast(new Pusher($data));
-    return view('pusher_test');
+    $supplier = auth()->user();
+    return view('chart-chartjs',compact('supplier'));
 });
 
 
@@ -105,3 +139,5 @@ Route::post('complete-the-order/{id}',[SupplierOrderController::class, 'complete
 // Route::get('users-show', [UserController::class, 'index'])->name('show_user');
 // Route::get('auth/google', [AuthController::class, 'redirectToGoogle']);
 // Route::get('auth/google/callback', [AuthController::class, 'handleGoogleCallback']);
+
+Route::get('/invoices/{id}/download', [InvoicesController::class, 'download'])->name('invoices.download');

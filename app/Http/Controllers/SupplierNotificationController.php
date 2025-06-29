@@ -44,7 +44,9 @@ class SupplierNotificationController extends Controller
 
     public function markAsRead($id)
     {
-        $notification = SupplierNotification::findOrFail($id);
+        
+        $supplier = auth()->user();
+        $notification = $supplier->notifications()->findOrFail($id);
         
         $notification->update(['is_read' => true]);
         $notification->update(['read_at'=> now()]);

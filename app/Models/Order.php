@@ -49,6 +49,14 @@ class Order extends Model
         return $this->orderItems()->sum('total_price');
     }
 
+
+
+    public function invoice()
+    {
+        return $this->hasOne(Invoice::class);
+    }
+
+
     /**
      * Get the total amount of the order
      */

@@ -372,8 +372,8 @@
 											@if($notification->read_at)
 											<div class="data-item">
 												<div class="data-label">وقت القراءة</div>
-												<div class="data-value">{{ $notification->read_at->format('Y-m-d H:i:s') }}</div>
-												<div class="time-ago">{{ $notification->read_at->diffForHumans() }}</div>
+												<div class="data-value">{{ \Carbon\Carbon::parse($notification->read_at)->format('Y-m-d H:i:s') }}</div>
+												<div class="time-ago">{{ \Carbon\Carbon::parse($notification->read_at)->diffForHumans() }}</div>
 											</div>
 											@endif
 										</div>

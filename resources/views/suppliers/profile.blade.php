@@ -60,15 +60,23 @@
 										</div><!-- main-profile-bio -->
 											<div class="row">
                                             <div class="col-md-4 col mb20">
-                                                <h5>44</h5>
+                                                <h5>{{ $order_completed_count }}</h5>
                                                 <h6 class="text-small text-muted mb-0">طلبات مكتملة</h6>
                                             </div>
                                             <div class="col-md-4 col mb20">
-                                                <h5>${{ number_format(424) }}</h5>
+                                                <h5>{{ number_format(
+												\App\Models\Order::where('supplier_id', $supplier->id)
+													->where('status', 'completed')
+													->with('orderItems')
+													->get()
+													->reduce(function($carry, $order) {
+														return $carry + $order->orderItems->sum('total_price');
+													}, 0)
+											) }} ل.س</h5>
                                                 <h6 class="text-small text-muted mb-0">إجمالي الإيرادات</h6>
                                             </div>
                                             <div class="col-md-4 col mb20">
-                                                <h5>35</h5>
+                                                <h5>22</h5>
                                                 <h6 class="text-small text-muted mb-0">عملاء تم خدمتهم</h6>
                                             </div>
                                         </div>
@@ -136,7 +144,7 @@
 											</div>
 											<div class="mr-auto">
 												<h5 class="tx-13">الطلبات المكتملة</h5>
-												<h2 class="mb-0 tx-22 mb-1 mt-1">1,587</h2>
+												<h2 class="mb-0 tx-22 mb-1 mt-1">{{ $order_completed_count }}</h2>
 												<p class="text-muted mb-0 tx-11"><i class="si si-arrow-up-circle text-success mr-1"></i>زيادة</p>
 											</div>
 										</div>
@@ -152,7 +160,17 @@
 											</div>
 											<div class="mr-auto">
 												<h5 class="tx-13">إجمالي الإيرادات</h5>
-												<h2 class="mb-0 tx-22 mb-1 mt-1">46,782</h2>
+												<h2 class="mb-0 tx-22 mb-1 mt-1">
+													{{ number_format(
+														\App\Models\Order::where('supplier_id', $supplier->id)
+															->where('status', 'completed')
+															->with('orderItems')
+															->get()
+															->reduce(function($carry, $order) {
+																return $carry + $order->orderItems->sum('total_price');
+															}, 0)
+													) }} ل.س
+												</h2>
 												<p class="text-muted mb-0 tx-11"><i class="si si-arrow-up-circle text-success mr-1"></i>زيادة</p>
 											</div>
 										</div>
@@ -168,7 +186,11 @@
 											</div>
 											<div class="mr-auto">
 												<h5 class="tx-13">المنتجات المباعة</h5>
-												<h2 class="mb-0 tx-22 mb-1 mt-1">1,890</h2>
+												<h2 class="mb-0 tx-22 mb-1 mt-1">
+													{{ \App\Models\Order::where('supplier_id', $supplier->id)->where('status', 'completed')->with('orderItems')->get()->reduce(function($carry, $order) {
+														return $carry + $order->orderItems->sum('quantity');
+													}, 0) }}
+												</h2>
 												<p class="text-muted mb-0 tx-11"><i class="si si-arrow-up-circle text-success mr-1"></i>زيادة</p>
 											</div>
 										</div>

@@ -12,4 +12,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('medicines:check-stock')->everyFifteenSeconds();
 Schedule::command('medicines:check-expired')->everyFifteenSeconds();
-Schedule::command('app:check-confirm-date')->daily();
+Schedule::command('app:check-confirm-date')->everyMinute();

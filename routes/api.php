@@ -3,6 +3,8 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\InvoicesController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
@@ -39,6 +41,7 @@ Route::apiResource('roles' , RoleController::class)->middleware([ApiLocalization
 
 Route::apiResource('suppliers' , SupplierController::class)->middleware([ApiLocalization::class]);
 
+
 Route::post('add-alternative-medicines/{medicineId}' , [MedicineController::class, 'storeAlternative'])->middleware([ApiLocalization::class]);
 
 // Route::post('delete-alternative-medicines/{medicineId}' , [MedicineController::class, 'removeAlternative'])->middleware([ApiLocalization::class]);
@@ -65,6 +68,8 @@ Route::apiResource('brands' , BrandController::class)->middleware([ApiLocalizati
 
 Route::apiResource('orders',OrderController::class)->middleware([ApiLocalization::class]);
 
+Route::apiResource('payments',PaymentController::class)->middleware([ApiLocalization::class]);
+
 // Route::get('medecines-with-low-quantity')
 
 Route::post('add-category', [MedicineController::class, 'storeCategory'])->middleware([ApiLocalization::class]);
@@ -83,4 +88,16 @@ Route::get('bar-code/{id}' , [MedicineController::class , 'generate_barcode']);
 Route::get('medicine-forms', [MedicineFormController::class, 'index'])->middleware([ApiLocalization::class]);
 Route::post('medicine-forms', [MedicineFormController::class, 'store'])->middleware([ApiLocalization::class]);
 Route::delete('medicine-forms/{id}', [MedicineFormController::class, 'destroy'])->middleware([ApiLocalization::class]);
+
+Route::post('create-new-invoice',[InvoicesController::class,'store'])->middleware([ApiLocalization::class]);
+Route::get('show-all-invoices',[InvoicesController::class,'show_all_invoice_with_filter'])->middleware([ApiLocalization::class]);
+Route::get('show-paid-invoices',[InvoicesController::class,'show_paid_invoices_api'])->middleware([ApiLocalization::class]);
+Route::get('show-unpaid-invoices',[InvoicesController::class,'show_unpaid_invoices_api'])->middleware([ApiLocalization::class]);
+Route::get('show-partially-invoices',[InvoicesController::class,'show_partially_paid_invoices_api'])->middleware([ApiLocalization::class]);
+Route::get('invoices/{id}/download-pdf', [InvoicesController::class, 'download_invoice_pdf_api'])->middleware([ApiLocalization::class]);
+Route::get('invoices/{id}/view-pdf', [InvoicesController::class, 'view_invoice_pdf_api'])->middleware([ApiLocalization::class]);
+Route::get('show-invoice-details/{id}', [InvoicesController::class, 'show_invoice_with_payments_api'])->middleware([ApiLocalization::class]);
+
+
+
 

@@ -16,14 +16,40 @@ class SupplierController extends Controller
 
     public function show_supplier_dashboard()
     {
-        $supplier= auth()->user();
-        return view('suppliers.dashboard' , compact('supplier'));
+        $supplier = auth()->user();
+        
+        // Calculate order statistics
+        $totalOrders = $supplier->orders()->count();
+        $pendingOrders = $supplier->orders()->where('status', 'pending')->count();
+        $confirmedOrders = $supplier->orders()->where('status', 'confirmed')->count();
+        $completedOrders = $supplier->orders()->where('status', 'completed')->count();
+        $cancelledOrders = $supplier->orders()->where('status', 'cancelled')->count();
+        
+        // Calculate percentages
+        $pendingPercentage = $totalOrders > 0 ? round(($pendingOrders / $totalOrders) * 100) : 0;
+        $confirmedPercentage = $totalOrders > 0 ? round(($confirmedOrders / $totalOrders) * 100) : 0;
+        $completedPercentage = $totalOrders > 0 ? round(($completedOrders / $totalOrders) * 100) : 0;
+        $cancelledPercentage = $totalOrders > 0 ? round(($cancelledOrders / $totalOrders) * 100) : 0;
+        
+        return view('suppliers.dashboard', compact(
+            'supplier',
+            'totalOrders',
+            'pendingOrders',
+            'confirmedOrders', 
+            'completedOrders',
+            'cancelledOrders',
+            'pendingPercentage',
+            'confirmedPercentage',
+            'completedPercentage',
+            'cancelledPercentage'
+        ));
     }
 
     public function show_supplier_profile()
     {
         $supplier = auth()->user();
-        return view('suppliers.profile' , compact('supplier'));
+        $order_completed_count = $supplier->orders()->where('status', 'completed')->count();
+        return view('suppliers.profile', compact('supplier', 'order_completed_count'));
     }
 
     /**
@@ -35,6 +61,17 @@ class SupplierController extends Controller
     public function ShowSupplierDetails($id)
     {
         try {
+            $currentSupplier = auth()->user();
+            
+            // التحقق من أن المورد يحاول الوصول لبياناته الخاصة فقط
+            if ($currentSupplier->id != $id) {
+                return response()->json([
+                    'status' => false,
+                    'status_code' => 403,
+                    'message' => 'غير مسموح لك بالوصول لبيانات مورد آخر',
+                ], 403);
+            }
+            
             $supplier = Supplier::with([
                 'orders' => function($query) {
                     $query->with('medicines')
@@ -53,12 +90,6 @@ class SupplierController extends Controller
                     'message' => __('messages.supplier_not_found'),
                 ], 404);
             }
-
-            // return response()->json([
-            //     'status' => true,
-            //     'status_code' => 200,
-            //     'supplier' => $supplier,
-            // ], 200);
 
             // حساب إحصائيات المورد
             $supplier_statistics = [
@@ -227,12 +258,13 @@ class SupplierController extends Controller
      */
     public function update(Request $request)
     {
+        // dd();
         $supplier = auth()->user();
         $request->validate([
         'contact_person_name' => 'nullable|string|max:255',
         'email' => 'nullable|email|unique:suppliers,email,' . $supplier->id,
-        'password' => 'required|min:6',
-        'bio' => 'nullable|string|max:500',
+        'password' => 'nullable|min:6',
+        'phone' => 'nullable|string',
         ]);
 
         // تحديث بيانات المورد
@@ -241,7 +273,7 @@ class SupplierController extends Controller
         if ($request->filled('password')) {
             $supplier->password = Hash::make($request->password);
         }
-        $supplier->bio = $request->bio??$supplier->bio;
+        $supplier->phone = $request->phone??$supplier->phone;
         $supplier->save();
         return redirect()->back()->with('success', 'تم تحديث بيانات المورد بنجاح!');
     }

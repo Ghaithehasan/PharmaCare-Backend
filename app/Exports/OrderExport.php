@@ -12,10 +12,12 @@ use App\Models\Order;
 class OrderExport implements FromCollection, WithHeadings, WithMapping, WithStyles
 {
     protected $status;
+    protected $supplier_id;
 
-    public function __construct($status = 'pending')
+    public function __construct($status = null, $supplier_id = null)
     {
         $this->status = $status;
+        $this->supplier_id = $supplier_id;
     }
 
     /**
@@ -26,6 +28,9 @@ class OrderExport implements FromCollection, WithHeadings, WithMapping, WithStyl
         return Order::with(['orderItems.medicine', 'supplier'])
             ->when($this->status, function($query) {
                 return $query->where('status', $this->status);
+            })
+            ->when($this->supplier_id, function($query) {
+                return $query->where('supplier_id', $this->supplier_id);
             })
             ->latest()
             ->get();

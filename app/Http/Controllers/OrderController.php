@@ -23,14 +23,7 @@ class OrderController extends Controller
             'items' => 'required|array|min:1',
             'items.*.medicine_id' => 'required|exists:medicines,id',
             'items.*.quantity' => 'required|integer|min:1',
-            'items.*.unit_price' => 'nullable|numeric|min:0',
-            'items.*.expiry_date' => 'required|date|after:today',
-            'payment' => 'required|array',
-            'payment.payment_date' => 'required|date',
-            'payment.payment_method' => 'required|in:cash,bank_transfer,credit',
-            'payment.amount_paid' => 'nullable|numeric|min:0'
         ]);
-        // dd($request->n);
 
         try {
             DB::beginTransaction();
@@ -44,7 +37,7 @@ class OrderController extends Controller
                 'order_number' => $orderNumber,
                 'order_date' => $validated['order_date'],
                 'note' => $validated['note'],
-                'delevery_date' => $validated['delevery_date'] ?? null,
+                'delevery_date' => null,
                 'status' => 'pending'
             ]);
 
@@ -54,8 +47,7 @@ class OrderController extends Controller
             // إضافة عناصر الطلبية
             foreach ($validated['items'] as $item) {
                 $medicine = Medicine::findOrFail($item['medicine_id']);
-                // استخدام السعر المقدم من الصيدلاني أو سعر المورد كقيمة افتراضية
-                $unitPrice = $item['unit_price'] ?? $medicine->supplier_price;
+                $unitPrice = $medicine->supplier_price;
                 $totalPrice = $item['quantity'] * $unitPrice;
                 $totalAmount += $totalPrice;
 
@@ -65,7 +57,7 @@ class OrderController extends Controller
                     'quantity' => $item['quantity'],
                     'unit_price' => $unitPrice,
                     'total_price' => $totalPrice,
-                    'expiry_date' => $item['expiry_date'],
+                    'expiry_date' => null,
                     'last_notification_date' => null
                 ]);
 
@@ -75,19 +67,10 @@ class OrderController extends Controller
                     'quantity' => $item['quantity'],
                     'unit_price' => $unitPrice,
                     'total_price' => $totalPrice,
-                    'expiry_date' => $item['expiry_date'],
+                    'expiry_date' => null,
                     'default_supplier_price' => $medicine->supplier_price
                 ];
             }
-
-            // إنشاء سجل الدفع
-            SupplierPayment::create([
-                'supplier_id' => $validated['supplier_id'],
-                'payment_date' => $validated['payment']['payment_date'],
-                'payment_method' => $validated['payment']['payment_method'],
-                'payment_status' => 'pending',
-                'amount_paid' => $validated['payment']['amount_paid'] ?? $totalAmount
-            ]);
 
             DB::commit();
 

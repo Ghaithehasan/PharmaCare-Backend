@@ -106,6 +106,56 @@
         color: #2c3e50;
         font-weight: 600;
     }
+    .empty-state {
+        text-align: center;
+        padding: 80px 20px;
+        background: linear-gradient(135deg, #f8fafc 0%, #ffeaea 100%);
+        border-radius: 20px;
+        box-shadow: 0 8px 32px rgba(231, 76, 59, 0.10);
+        margin: 40px 0;
+        border: 1.5px solid #ffeaea;
+        position: relative;
+        overflow: hidden;
+    }
+    .empty-state .icon {
+        font-size: 4em;
+        color: #e74a3b;
+        margin-bottom: 20px;
+        opacity: 0.8;
+        animation: shake 1.5s infinite alternate;
+    }
+    @keyframes shake {
+        0% { transform: rotate(-6deg); }
+        100% { transform: rotate(6deg); }
+    }
+    .empty-state h3 {
+        color: #e74a3b;
+        font-weight: 700;
+        margin-bottom: 15px;
+        font-size: 1.5em;
+        letter-spacing: 1px;
+    }
+    .empty-state p {
+        color: #b23c2a;
+        font-size: 1.1em;
+        line-height: 1.6;
+        margin-bottom: 30px;
+    }
+    .empty-state .btn {
+        background: linear-gradient(90deg, #e74a3b 0%, #f39c12 100%);
+        border: none;
+        padding: 12px 30px;
+        border-radius: 25px;
+        font-weight: 600;
+        color: #fff;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(231, 76, 59, 0.10);
+    }
+    .empty-state .btn:hover {
+        transform: translateY(-2px) scale(1.04);
+        box-shadow: 0 8px 25px rgba(231, 76, 59, 0.18);
+        background: linear-gradient(90deg, #f39c12 0%, #e74a3b 100%);
+    }
 </style>
 @endsection
 @section('page-header')
@@ -127,13 +177,18 @@
 @section('content')
 <div class="row">
     <div class="col-xl-12">
-        @if($orders->count() == 0)
-            <div class="text-center py-5">
-                <i class="fas fa-check-circle" style="font-size: 4em; color: #28a745;"></i>
-                <h4 class="mt-3 text-muted">لا توجد طلبات ملغية</h4>
-                <p class="text-muted">جميع الطلبات في حالة جيدة</p>
-            </div>
-        @else
+    @if($orders->count() == 0)
+    <div class="empty-state">
+        <div class="icon">
+            <i class="fas fa-times-circle"></i>
+        </div>
+        <h3>لا توجد طلبات ملغية</h3>
+        <p>جميع الطلبات في حالة ممتازة ولا يوجد أي إلغاء حالياً.<br>نتمنى لك يوماً سعيداً!</p>
+        <a href="{{ route('supplier.orders.index') }}" class="btn">
+            <i class="fas fa-arrow-left ml-1"></i>العودة للطلبات الجديدة
+        </a>
+    </div>
+@else
             @foreach($orders as $order)
                 <div class="canceled-order-card">
                     <div class="order-header">

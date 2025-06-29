@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
-use App\Events\Pusher;
 use Picqer\Barcode\BarcodeGeneratorPNG;
 use Picqer\Barcode\BarcodeGeneratorHTML;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -223,7 +222,6 @@ class MedicineController extends Controller
             }
         }
 
-        event(new Pusher($medicine));
 
         return response()->json([
             'status' => true,
@@ -267,7 +265,6 @@ class MedicineController extends Controller
 
     public function destroy($id)
     {
-        // 'message' => __('messages.medicine_deleted'),
         $medicine = Medicine::find($id);
         if(!$medicine)
         {
@@ -277,7 +274,7 @@ class MedicineController extends Controller
                 'status_code'=>404
             ],404);
         }
-        $alternatives=$medicine->alternatives();
+        $alternatives=$medicine->alternatives()->get();
         $itemRemoved = $medicine->id;
 
         foreach($alternatives as $alt)
@@ -510,15 +507,6 @@ class MedicineController extends Controller
 
         $medicine->save();
 
-
-
-        // تشغيل الحدث مع تمرير الدواء المحدث
-        event(new Pusher($medicine));
-
-        \Log::info('Event triggered', [
-            'medicine_id' => $medicine->id,
-            'event_name' => 'medicine.updated'
-        ]);
 
         return response()->json([
             'status' => true,

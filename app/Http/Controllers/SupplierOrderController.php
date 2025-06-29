@@ -18,21 +18,23 @@ class SupplierOrderController extends Controller
      */
     public function index()
     {
+        $supplier = auth()->user();
         $orders = Order::with(['orderItems.medicine', 'supplier'])
+            ->where('supplier_id', $supplier->id)
             ->where('status', 'pending')
             ->latest()
             ->get();
-        $supplier = auth()->user();    
         return view('orders.show_new_orders', compact('orders','supplier'));
     }
 
     public function accepted()
     {
+        $supplier = auth()->user();
         $orders = Order::with(['orderItems.medicine', 'supplier'])
+            ->where('supplier_id', $supplier->id)
             ->where('status', 'confirmed')
             ->latest()
             ->get();
-        $supplier = auth()->user();    
         return view('orders.show_accepted_orders', compact('orders','supplier'));
     }
 
@@ -43,10 +45,11 @@ class SupplierOrderController extends Controller
      */
     public function show_All_orders()
     {
+        $supplier = auth()->user();
         $orders = Order::with(['orderItems.medicine', 'supplier'])
+            ->where('supplier_id', $supplier->id)
             ->latest()
             ->get();
-        $supplier = auth()->user();    
         return view('orders.show_all_orders', compact('orders','supplier'));
     }
 
@@ -54,14 +57,6 @@ class SupplierOrderController extends Controller
      * Store a newly created resource in storage.
      */
     public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
     {
         //
     }
@@ -82,9 +77,12 @@ class SupplierOrderController extends Controller
         ]);
 
         $CancelReason = $request->cancellation_reason;
+        $supplier = auth()->user();
 
         try {
-            $order = Order::findOrFail($request->order_id);
+            $order = Order::where('id', $request->order_id)
+                         ->where('supplier_id', $supplier->id)
+                         ->firstOrFail();
             
             // Update order status
             $order->update([
@@ -110,9 +108,12 @@ class SupplierOrderController extends Controller
 
     public function ShowPageComplete($id)
     {
+        $supplier = auth()->user();
         try {
-            $order = Order::with(['supplier', 'orderItems.medicine'])->findOrFail($id);
-            $supplier = $order->supplier;
+            $order = Order::with(['supplier', 'orderItems.medicine'])
+                         ->where('id', $id)
+                         ->where('supplier_id', $supplier->id)
+                         ->firstOrFail();
             
             // التحقق من أن الطلبية في حالة "تم الشحن" أو "مقبول"
             if ($order->status !== 'confirmed') {
@@ -131,25 +132,60 @@ class SupplierOrderController extends Controller
      */
     public function completeOrder(Request $request, $id)
     {
+        $supplier = auth()->user();
         try {
-            $order = Order::with(['supplier', 'orderItems.medicine'])->findOrFail($id);
+            $order = Order::with(['supplier', 'orderItems.medicine'])
+                         ->where('id', $id)
+                         ->where('supplier_id', $supplier->id)
+                         ->firstOrFail();
             
-            // التحقق من أن الطلبية في حالة "تم الشحن" أو "مقبول"
+
+
+            foreach($order->orderItems as $item)
+            {
+                $medicine = \App\Models\Medicine::find($item->medicine_id);
+                if ($medicine) {
+                    $medicine->quantity += $item->quantity;
+                    $medicine->save();
+                }
+            }
+
+            // التحقق من أن الطلبية في حالة "مقبول"
             if ($order->status !== 'confirmed' ) {
                 return redirect()->back()->with('error', 'لا يمكن تأكيد استلام هذه الطلبية في حالتها الحالية');
             }
             
             // تحديث حالة الطلبية إلى "مكتمل"
+            
             $order->update([
                 'status' => 'completed',
                 'note' => $order->note ? $order->note . "\nتم تأكيد الاستلام في: " . now()->format('Y-m-d H:i:s') : "تم تأكيد الاستلام في: " . now()->format('Y-m-d H:i:s')
             ]);
             
+            
+            // إنشاء فاتورة جديدة
+            $totalAmount = $order->calculateTotal();
+            $invoiceNumber = 'INV-' . date('Y') . '-' . str_pad($order->id, 4, '0', STR_PAD_LEFT);
+            
+            $invoice = \App\Models\invoices::create([
+                'order_id' => $order->id,
+                'invoice_number' => $invoiceNumber,
+                'invoice_date' => now(),
+                'due_date' => now()->addDays(30), // تاريخ استحقاق بعد 30 يوم
+                'status' => 'unpaid',
+                'notes' => 'فاتورة طلبية رقم: ' . $order->order_number,
+                'total_amount' => $totalAmount,
+            ]);
+            
+            // إطلاق الحدث لإرسال الإيميل مع الفاتورة
+            $pharmacyEmail = 'matrex663@gmail.com'; // يمكن تغييرها لاحقاً لإيميل الصيدلية
+            event(new \App\Events\SendInvoiceEmail($invoice, $pharmacyEmail));
+
             // عرض صفحة تهنئة للصيدلاني
-            return view('orders.order_completed', compact('order'));
+            return view('orders.order_completed', compact('order','invoice'));
             
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'حدث خطأ أثناء تأكيد استلام الطلبية');
+            return redirect()->back()->with('error', 'حدث خطأ أثناء تأكيد استلام الطلبية: ' . $e->getMessage());
         }
     }
 
@@ -171,25 +207,25 @@ class SupplierOrderController extends Controller
 
     public function PrintOrder($id)
     {
-        $order = Order::with(['orderItems.medicine', 'supplier'])->findOrFail($id);
-        $supplier = $order->supplier;
+        $supplier = auth()->user();
+        $order = Order::with(['orderItems.medicine', 'supplier'])
+                     ->where('id', $id)
+                     ->where('supplier_id', $supplier->id)
+                     ->firstOrFail();
         return view('orders.print_order', compact('order', 'supplier'));
     }
 
 
     public function ExportOrder()
     {
-        return Excel::download(new OrderExport(), 'orders.xlsx');
-        // return Excel::download(new OrderExport('completed'), 'completed_orders.xlsx');
-
-
-        // For all orders
-        // return Excel::download(new OrderExport(null), 'all_orders.xlsx');
+        $supplier = auth()->user();
+        return Excel::download(new OrderExport(null, $supplier->id), 'orders.xlsx');
     }
 
 
     public function AcceptOrder(Request $request)
     {
+        $supplier = auth()->user();
         try {
             $request->validate([
                 'order_id' => 'required|exists:orders,id',
@@ -197,7 +233,9 @@ class SupplierOrderController extends Controller
                 'delivery_notes' => 'nullable|string|max:500',
             ]);
 
-            $order = Order::findOrFail($request->order_id);
+            $order = Order::where('id', $request->order_id)
+                         ->where('supplier_id', $supplier->id)
+                         ->firstOrFail();
             $order->update([
                 'status' => 'confirmed',
                 'delevery_date' => $request->expected_delivery_date,
@@ -216,6 +254,7 @@ class SupplierOrderController extends Controller
 
     public function updateOrder(Request $request)
     {
+        $supplier = auth()->user();
         // dd($request->edit_notes);
         try {
             $request->validate([
@@ -227,7 +266,9 @@ class SupplierOrderController extends Controller
                 'edit_notes' => 'nullable|string|max:1000',
             ]);
 
-            $order = Order::findOrFail($request->order_id);
+            $order = Order::where('id', $request->order_id)
+                         ->where('supplier_id', $supplier->id)
+                         ->firstOrFail();
             
             // التحقق من أن الطلبية قابلة للتعديل
             if ($order->status !== 'pending') {
@@ -295,4 +336,28 @@ class SupplierOrderController extends Controller
 
         return view('orders.show_canceled_orders', compact('orders', 'supplier'));
     }
+
+    public function show_completed_orders()
+    {
+        $supplier = auth()->user();
+        $orders = Order::with(['orderItems.medicine', 'supplier'])
+            ->where('supplier_id', $supplier->id)
+            ->where('status', 'completed')
+            ->latest()
+            ->get();
+        return view('orders.show_completed_orders', compact('orders','supplier'));
+    }
+
+    public function updateExpiry(Request $request, $itemId)
+    {
+        $request->validate([
+            'expiry_date' => 'required|date|after:today'
+        ]);
+        $item = \App\Models\OrderItem::findOrFail($itemId);
+        $item->expiry_date = $request->expiry_date;
+        $item->save();
+        return back()->with('update_expiry', 'تم تحديث تاريخ الصلاحية بنجاح');
+    }
+    
+    
 }
