@@ -3,47 +3,88 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InventoryCount extends Model
 {
-    const STATUS_IN_PROGRESS = 'in_progress';
-    const STATUS_COMPLETED = 'completed';
-
     protected $fillable = [
         'count_date',
         'count_number',
         'status',
         'notes',
         'created_by',
-        'approved_by'
     ];
 
     protected $casts = [
         'count_date' => 'date'
     ];
+    const STATUS_IN_PROGRESS = 'in_progress';
+    const STATUS_COMPLETED = 'completed';
 
-    public function items()
+    /**
+     * العلاقة مع عناصر الجرد
+     */
+    public function items(): HasMany
     {
         return $this->hasMany(InventoryCountItem::class);
     }
 
-    public function createdBy()
+    /**
+     * العلاقة مع المستخدم المنشئ
+     */
+    public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function approvedBy()
+
+
+    /**
+     * الحصول على إجمالي الفروقات
+     */
+    public function getTotalDiscrepanciesAttribute()
     {
-        return $this->belongsTo(User::class, 'approved_by');
+        return $this->items()->where('difference', '!=', 0)->count();
     }
 
-    public function isCompleted()
+    /**
+     * الحصول على إجمالي القيمة المفقودة
+     */
+    public function getTotalValueLossAttribute()
     {
-        return $this->status === self::STATUS_COMPLETED;
+        return $this->items()->sum(function($item) {
+            return abs($item->difference) * $item->medicine->supplier_price;
+        });
     }
 
-    public function isInProgress()
+    /**
+     * الحصول على نسبة الدقة
+     */
+    public function getAccuracyRateAttribute()
     {
-        return $this->status === self::STATUS_IN_PROGRESS;
+        $totalItems = $this->items()->count();
+        $discrepancies = $this->getTotalDiscrepanciesAttribute();
+
+        return $totalItems > 0 ? (($totalItems - $discrepancies) / $totalItems) * 100 : 0;
     }
-} 
+
+    /**
+     * الحصول على مدة إنجاز الجرد بالساعات
+     */
+    public function getDurationHoursAttribute()
+    {
+        return $this->created_at->diffInHours($this->updated_at);
+    }
+
+    /**
+     * الحصول على كفاءة الجرد (عدد العناصر في الساعة)
+     */
+    public function getEfficiencyScoreAttribute()
+    {
+        $duration = $this->getDurationHoursAttribute();
+        $itemsCount = $this->items()->count();
+
+        return $duration > 0 ? $itemsCount / $duration : 0;
+    }
+}

@@ -18,7 +18,6 @@ return new class extends Migration
             $table->enum('status', ['in_progress', 'completed'])->default('in_progress');
             $table->text('notes')->nullable();
             $table->foreignId('created_by')->constrained('users');
-            $table->foreignId('approved_by')->nullable()->constrained('users');
             $table->timestamps();
         });
     }
@@ -30,4 +29,4 @@ return new class extends Migration
     {
         Schema::dropIfExists('inventory_counts');
     }
-}; 
+};

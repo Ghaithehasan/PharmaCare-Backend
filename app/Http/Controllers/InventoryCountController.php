@@ -40,7 +40,7 @@ class InventoryCountController extends Controller
             // إضافة تفاصيل الجرد
             foreach ($request->items as $item) {
                 $medicine = Medicine::find($item['medicine_id']);
-                
+
                 InventoryCountItem::create([
                     'inventory_count_id' => $inventoryCount->id,
                     'medicine_id' => $item['medicine_id'],
@@ -211,4 +211,4 @@ class InventoryCountController extends Controller
             ]
         ]);
     }
-} 
+}

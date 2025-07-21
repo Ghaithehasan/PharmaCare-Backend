@@ -16,6 +16,7 @@ use App\Http\Controllers\MedicineFormController;
 use App\Http\Middleware\ApiLocalization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ReportController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -25,9 +26,14 @@ Route::post('login-user' , [AuthController::class , 'login'])->middleware([ApiLo
 
 Route::post('register-user' , [AuthController::class , 'register'])->middleware([ApiLocalization::class]);
 
+
 Route::post('logout-user',[AuthController::class , 'logout'])->middleware(['auth:api' , ApiLocalization::class]);
 
 Route::post('verify-email-code' , [AuthController::class , 'verifyEmail'])->middleware(['auth:api' , ApiLocalization::class]);
+
+Route::get('show-profile',[AuthController::class,'show_profile_details'])->middleware(['auth:api' , ApiLocalization::class]);
+
+Route::put('update-profile', [AuthController::class, 'updateProfile'])->middleware(['auth:api' ,  ApiLocalization::class]);
 
 Route::get('/verify-email', [AuthController::class, 'verifyEmailLink']);
 
@@ -97,6 +103,20 @@ Route::get('show-partially-invoices',[InvoicesController::class,'show_partially_
 Route::get('invoices/{id}/download-pdf', [InvoicesController::class, 'download_invoice_pdf_api'])->middleware([ApiLocalization::class]);
 Route::get('invoices/{id}/view-pdf', [InvoicesController::class, 'view_invoice_pdf_api'])->middleware([ApiLocalization::class]);
 Route::get('show-invoice-details/{id}', [InvoicesController::class, 'show_invoice_with_payments_api'])->middleware([ApiLocalization::class]);
+
+// تقارير جرد المخزون
+Route::prefix('reports')->group(function () {
+    Route::get('/comprehensive-inventory', [ReportController::class, 'comprehensiveInventoryReport'])->middleware([ApiLocalization::class]);
+    Route::get('/Medicines-Expiry-date',[ReportController::class, 'ExpiryReports'])->middleware([ApiLocalization::class]);
+    Route::get('/discrepancy', [ReportController::class, 'discrepancyReport'])->middleware([ApiLocalization::class]);
+    Route::get('/missing-leakage', [ReportController::class, 'missingAndLeakageReport'])->middleware([ApiLocalization::class]);
+    Route::get('/time-performance', [ReportController::class, 'timePerformanceReport'])->middleware([ApiLocalization::class]);
+    Route::get('/category-analysis', [ReportController::class, 'categoryAnalysisReport'])->middleware([ApiLocalization::class]);
+    Route::get('/predictive-analysis', [ReportController::class, 'predictiveAnalysisReport'])->middleware([ApiLocalization::class]);
+    Route::get('/talif-reports',[ReportController::class, 'talif_report'])->middleware([ApiLocalization::class]);
+    Route::post('/generate-pdf', [ReportController::class, 'generatePDFReport'])->middleware([ApiLocalization::class]);
+
+});
 
 
 

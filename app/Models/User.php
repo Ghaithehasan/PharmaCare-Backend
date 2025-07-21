@@ -75,4 +75,13 @@ class User extends Authenticatable implements JWTSubject
     {
         return [];
     }
+
+    /**
+     * العلاقة مع عمليات الجرد المنشأة
+     */
+    public function createdInventoryCounts()
+    {
+        return $this->hasMany(InventoryCount::class, 'created_by');
+    }
+
 }

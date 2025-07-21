@@ -16,38 +16,41 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Socialite\Facades\Socialite;
 use Tymon\JWTAuth\Facades\JWTAuth;
-
+use Illuminate\Support\Facades\Validator;
 class AuthController extends Controller
 {
     public function login(Request $request)
-    {
-        $credentials = $request->only('email', 'password');
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|min:8|max:15'
-        ]);
-        // dd();
+{
+    $credentials = $request->only('email', 'password');
 
-        if (!$token = JWTAuth::attempt($credentials)) {
-            return response()->json(['message' => __('messages.invalid_credentials') , 'status' => 'error' , 'error_code' => 401], 401);
-        }
-        // dd();
-        // $user = auth()->user();
-        $user = JWTAuth::user();
+    $request->validate([
+        'email' => 'required|email',
+        'password' => 'required|min:8|max:15'
+    ]);
+
+    // الحصول على المستخدم يدوياً من الحارس الصحيح
+    $user = User::where('email', $credentials['email'])->first();
+
+    if (!$user || !Hash::check($credentials['password'], $user->password)) {
         return response()->json([
-            'status' => 'success',
-            'message' => __('messages.login_success'),
-            'local' => app()->getLocale() ,
-            'user_id' => $user->id,
-            'token' => $token,
-            'expires_in' => config('jwt.ttl') * 60,
-            'status_code' => 200,
-            'user' => $user
-        ] , 200);
-
+            'message' => 'invalid credentials',
+            'status' => 'error',
+            'error_code' => 401
+        ], 401);
     }
 
+    // توليد التوكن بطريقة موثوقة
+    $token = JWTAuth::fromUser($user);
 
+    return response()->json([
+        'status' => 'success',
+        'message' => 'login success',
+        'user_id' => $user->id,
+        'token' => $token,
+        'expires_in' => config('jwt.ttl') * 60,
+        'user' => $user
+    ], 200);
+}
     public function register(Request $request)
     {
         try{
@@ -92,16 +95,18 @@ class AuthController extends Controller
 
     public function verifyEmail(Request $request)
     {
+        
         try {
+            // dd(auth()->user());
             $request->validate([
                 'email' => 'required|email|exists:users,email',
                 'verification_code' => 'required|string|min:6|max:6'
             ]);
 
-            $user = User::where('email', $request->email)
-                        ->where('verification_code', $request->verification_code)
-                        ->first();
-
+            // $user = User::where('email', $request->email)
+            //             ->where('verification_code', $request->verification_code)
+            //             ->first();
+            $user = auth()->user()->where('verification_code', $request->verification_code);
             if (!$user) {
                 return response()->json([
                     'status' => 'error',
@@ -131,6 +136,94 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
+    public function show_profile_details(Request $request)
+    {
+        try {
+            // استرجاع المستخدم من التوكن المرسل في الهيدر
+            $user = JWTAuth::parseToken()->authenticate();
+            if (!$user) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'المستخدم غير موجود أو التوكن غير صالح',
+                    'error_code' => 404
+                ], 404);
+            }
+    
+            return response()->json([
+                'status' => 'success',
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'gender' => $user->gender,
+                    'is_verified' => $user->is_verified,
+                    'created_at' => $user->created_at
+                ],
+                'status_code' => 200
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'لم يتم التحقق من التوكن أو من الجلسة',
+                'error_code' => 401,
+                'details' => $e->getMessage()
+            ], 401);
+        }
+    }
+
+    public function updateProfile(Request $request)
+{
+    try {
+        $user = JWTAuth::parseToken()->authenticate();
+
+        if (!$user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'المستخدم غير موجود أو التوكن غير صالح',
+                'error_code' => 404
+            ], 404);
+        }
+
+        // ✅ تحقق من البيانات المدخلة
+        $validator = Validator::make($request->all(), [
+            'name'   => 'sometimes|required|string|max:40',
+            'email'  => 'sometimes|required|email|unique:users,email,' . $user->id,
+            'phone'  => 'sometimes|required|numeric|digits_between:10,15|unique:users,phone,' . $user->id,
+            'gender' => 'sometimes|required|in:male,female'
+        ]);
+        
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'البيانات غير صحيحة',
+                'errors' => $validator->errors(),
+                'status_code' => 422
+            ], 422);
+        }
+
+        // ✅ تحديث البيانات
+        $user->update($validator->validated());
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'تم تحديث البروفايل بنجاح',
+            'user' => $user,
+            'status_code' => 200
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'فشل في تحديث البروفايل',
+            'error_code' => 500,
+            'details' => $e->getMessage()
+        ], 500);
+    }
+}
 
 
     public function logout(Request $request)

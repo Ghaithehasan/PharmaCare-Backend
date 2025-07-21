@@ -36,6 +36,11 @@ class Order extends Model
                     ->withTimestamps();
     }
 
+    public function batches()
+    {
+        return $this->hasMany(MedicineBatch::class);
+    }
+
     public function orderItems()
     {
         return $this->hasMany(OrderItem::class);
@@ -53,7 +58,7 @@ class Order extends Model
 
     public function invoice()
     {
-        return $this->hasOne(Invoice::class);
+        return $this->hasOne(Invoices::class);
     }
 
 

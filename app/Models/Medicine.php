@@ -27,7 +27,7 @@ class Medicine extends Model
     protected $casts = [
         'alternative_ids' => 'array'
     ];
- 
+
     // العلاقة مع التصنيف
     public function category()
     {
@@ -38,6 +38,11 @@ class Medicine extends Model
     public function medicineForm()
     {
         return $this->belongsTo(MedicineForm::class);
+    }
+
+    public function batches()
+    {
+        return $this->hasMany(MedicineBatch::class);
     }
 
     // العلاقة مع المرفقات
@@ -54,6 +59,12 @@ class Medicine extends Model
                     ->withTimestamps();
     }
 
+    // العلاقة المباشرة مع order_items
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
     // الحصول على الأدوية البديلة
     public function alternatives()
     {
@@ -64,7 +75,7 @@ class Medicine extends Model
     public function addAlternative($medicines)
     {
         $medicines = collect($medicines);
-        
+
         foreach ($medicines as $medicine) {
             // إضافة الدواء الجديد كبديل للدواء الحالي فقط
             $currentAlternatives = $this->alternative_ids ?? [];
@@ -80,7 +91,7 @@ class Medicine extends Model
     public function addBidirectionalAlternative($medicines)
     {
         $medicines = collect($medicines);
-        
+
         foreach ($medicines as $medicine) {
             // 1. إضافة الدواء الجديد كبديل للدواء الحالي
             $currentAlternatives = $this->alternative_ids ?? [];
@@ -89,7 +100,7 @@ class Medicine extends Model
                 $this->alternative_ids = array_values($currentAlternatives);
                 $this->save();
             }
-            
+
             // 2. إضافة الدواء الحالي كبديل للدواء الجديد
             $medicineAlternatives = $medicine->alternative_ids ?? [];
             if (!in_array($this->id, $medicineAlternatives)) {
@@ -116,8 +127,8 @@ class Medicine extends Model
 
     public function brand()
     {
-        return $this->belongTo(Brand::class);
+        return $this->belongsTo(Brand::class);
     }
 
-    
+
 }

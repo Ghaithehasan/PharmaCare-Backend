@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Medicine;
 use App\Models\Category;
-
+use App\Models\OrderItem;
 use App\Models\MedicineAttachment;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -29,8 +29,8 @@ class MedicineController extends Controller
             'expiry_filter' => 'nullable|in:expired,expiring_soon,valid'
         ]);
 
-        // بناء الاستعلام الأساسي
-        $query = Medicine::with(['category'])
+        // بناء الاستعلام الأساسي مع علاقة order_items
+        $query = Medicine::with(['category', 'orderItems'])
             ->select([
                 'id',
                 'medicine_name',
@@ -43,7 +43,6 @@ class MedicineController extends Controller
                 'supplier_price',
                 'people_price',
                 'tax_rate',
-                'expiry_date',
                 'category_id'
             ]);
 
@@ -104,7 +103,7 @@ class MedicineController extends Controller
         if (!empty($filters['quantity_filter'])) {
             switch ($filters['quantity_filter']) {
                 case 'low':
-                    $query->where('quantity', '<=', DB::raw('alert_quantity'));
+                    $query->where('quantity', '<=', DB::raw('alert_quantity'))->where('quantity','>',0);
                     break;
                 case 'out':
                     $query->where('quantity', 0);
@@ -115,19 +114,28 @@ class MedicineController extends Controller
             }
         }
 
-        // فلتر تاريخ الصلاحية
+        // فلتر تاريخ الصلاحية - يستخدم order_items مع مراعاة الكمية الفعلية
         if (!empty($filters['expiry_filter'])) {
             $now = Carbon::now();
             switch ($filters['expiry_filter']){
                 case 'expired':
-                    $query->where('expiry_date', '<', $now);
+                    $query->whereHas('orderItems', function($q) use ($now) {
+                        $q->where('expiry_date', '<', $now)
+                          ->where('quantity', '>', 0); // فقط الدفعات التي لا تزال في المخزون
+                    })->where('quantity', '>', 0); // التأكد من وجود كمية فعلية
                     break;
                 case 'expiring_soon':
-                    $query->where('expiry_date', '>', $now)
-                          ->where('expiry_date', '<=', $now->copy()->addDays(30));
+                    $query->whereHas('orderItems', function($q) use ($now) {
+                        $q->where('expiry_date', '>', $now)
+                          ->where('expiry_date', '<=', $now->copy()->addDays(30))
+                          ->where('quantity', '>', 0); // فقط الدفعات التي لا تزال في المخزون
+                    })->where('quantity', '>', 0); // التأكد من وجود كمية فعلية
                     break;
                 case 'valid':
-                    $query->where('expiry_date', '>', $now);
+                    $query->whereHas('orderItems', function($q) use ($now) {
+                        $q->where('expiry_date', '>', $now)
+                          ->where('quantity', '>', 0); // فقط الدفعات التي لا تزال في المخزون
+                    })->where('quantity', '>', 0); // التأكد من وجود كمية فعلية
                     break;
             }
         }
@@ -138,6 +146,9 @@ class MedicineController extends Controller
      */
     private function formatMedicineData($medicine)
     {
+        // حساب معلومات تاريخ الانتهاء من order_items
+        $expiryInfo = $this->calculateExpiryInfo($medicine);
+
         return [
             'id' => $medicine->id,
             'name' => $medicine->medicine_name,
@@ -152,7 +163,6 @@ class MedicineController extends Controller
                 'people_price' => $medicine->people_price,
                 'tax_rate' => $medicine->tax_rate,
             ],
-            'expiry_date' => $medicine->expiry_date,
             'category' => $medicine->category ? [
                 'id' => $medicine->category->id,
                 'name' => $medicine->category->name
@@ -162,13 +172,60 @@ class MedicineController extends Controller
                 'name' => $medicine->medicineForm->name,
                 'description' => $medicine->medicineForm->description
             ] : null,
+            'expiry_info' => $expiryInfo,
             'status' => [
                 'is_low' => $medicine->quantity <= $medicine->alert_quantity,
                 'is_out' => $medicine->quantity == 0,
-                'is_expired' => $medicine->expiry_date < Carbon::now(),
-                'is_expiring_soon' => $medicine->expiry_date > Carbon::now() && 
-                                    $medicine->expiry_date <= Carbon::now()->addDays(30)
+                'is_expired' => $expiryInfo['has_expired'],
+                'is_expiring_soon' => $expiryInfo['has_expiring_soon']
             ]
+        ];
+    }
+
+    /**
+     * حساب معلومات تاريخ الانتهاء من order_items
+     */
+    private function calculateExpiryInfo($medicine)
+    {
+        $now = Carbon::now();
+        $orderItems = $medicine->orderItems()->where('quantity', '>', 0)->get();
+
+        $hasExpired = false;
+        $hasExpiringSoon = false;
+        $earliestExpiry = null;
+        $expiredQuantity = 0;
+        $expiringSoonQuantity = 0;
+
+        // الكمية الفعلية المتوفرة حالياً
+        $actualQuantity = $medicine->quantity;
+
+        foreach ($orderItems as $item) {
+            if ($item->expiry_date) {
+                // حساب نسبة الكمية من هذه الدفعة مقارنة بالكمية الإجمالية
+                $itemRatio = $item->quantity > 0 ? min(1, $actualQuantity / $item->quantity) : 0;
+                $availableFromThisBatch = $item->quantity * $itemRatio;
+
+                if ($item->expiry_date < $now) {
+                    $hasExpired = true;
+                    $expiredQuantity += $availableFromThisBatch;
+                } elseif ($item->expiry_date <= $now->copy()->addDays(30)) {
+                    $hasExpiringSoon = true;
+                    $expiringSoonQuantity += $availableFromThisBatch;
+                }
+
+                if (!$earliestExpiry || $item->expiry_date < $earliestExpiry) {
+                    $earliestExpiry = $item->expiry_date;
+                }
+            }
+        }
+
+        return [
+            'has_expired' => $hasExpired,
+            'has_expiring_soon' => $hasExpiringSoon,
+            'earliest_expiry_date' => $earliestExpiry,
+            'expired_quantity' => round($expiredQuantity, 2),
+            'expiring_soon_quantity' => round($expiringSoonQuantity, 2),
+            'total_available_quantity' => $actualQuantity
         ];
     }
 
@@ -183,7 +240,7 @@ class MedicineController extends Controller
             'category_id' => 'required|exists:categories,id',
             'medicine_form_id' => 'required|exists:medicine_forms,id',
             'brand_id' => 'required|exists:brands,id',
-            'quantity' => 'required|integer|min:1',
+            'quantity' => 'required|integer|min:0',
             'alert_quantity' => 'nullable|integer|min:1',
             'people_price' => 'required|numeric|min:0',
             // 'expiry_date' => 'required|date',
@@ -201,7 +258,7 @@ class MedicineController extends Controller
             foreach ($request->file('attachments') as $file) {
                 // Generate unique filename
                 $fileName = Str::random(20) . '.' . $file->getClientOriginalExtension();
-                
+
                 // Store file in storage/app/public/medicine-attachments
                 $filePath = $file->storeAs('medicine-attachments', $fileName, 'public');
 
@@ -255,11 +312,11 @@ class MedicineController extends Controller
     {
         $min = 10000000; // أصغر رقم مكون من 8 أرقام
         $max = 99999999; // أكبر رقم مكون من 8 أرقام
-    
+
         do {
             $barcode = mt_rand($min, $max);
         } while (Medicine::where('bar_code', $barcode)->exists()); // التأكد من عدم التكرار داخل قاعدة البيانات
-    
+
         return response()->json(['bar_code' => $barcode , 'status' => true , 'status_code' => 200]);
     }
 
@@ -304,7 +361,7 @@ class MedicineController extends Controller
 
         $medicine = Medicine::findOrFail($medicineId);
         $alternatives = Medicine::whereIn('id', $request->alternative_ids)->get();
-        
+
         if ($request->is_bidirectional) {
             $medicine->addBidirectionalAlternative($alternatives);
             $message = '✅ تم إضافة البدائل المتبادلة بنجاح!';
@@ -312,7 +369,7 @@ class MedicineController extends Controller
             $medicine->addAlternative($alternatives);
             $message = '✅ تم إضافة البدائل بنجاح!';
         }
-    
+
         return response()->json([
             'message' => $message,
             'status_code' => 200,
@@ -524,11 +581,11 @@ class MedicineController extends Controller
         // dd($quantity);
         $medicine = Medicine::findOrFail($medicine_id);
         $barcode = base64_encode((new BarcodeGeneratorPNG())->getBarcode($medicine->bar_code, BarcodeGeneratorPNG::TYPE_CODE_128));
-    
+
         $pdf = Pdf::loadView('barcode', compact('medicine', 'barcode', 'quantity'))
                   ->setPaper('A4', 'portrait')
                   ->setOptions(['isHtml5ParserEnabled' => true, 'isPhpEnabled' => true]);
-    
+
         return response($pdf->output(), 200)
                ->header('Content-Type', 'application/pdf')
                ->header('Content-Disposition', 'inline; filename="medicine_labels.pdf"');
