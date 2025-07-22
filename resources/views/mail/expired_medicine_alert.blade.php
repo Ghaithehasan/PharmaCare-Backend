@@ -23,14 +23,18 @@
         <table class="table">
             <tr>
                 <th>اسم الدواء</th>
-                <th>الكمية المتوفرة</th>
+                <th>رقم الدفعة</th>
+                <th>الكمية في الدفعة</th>
+                <th>سعر الوحدة</th>
                 <th>الفئة</th>
                 <th>تاريخ الانتهاء</th>
                 <th>الأيام المتبقية</th>
             </tr>
             <tr>
                 <td>{{ $medicine_name }}</td>
-                <td>{{ $quantity }}</td>
+                <td>{{ $batch_number ?? '-' }}</td>
+                <td>{{ $batch_quantity ?? '-' }}</td>
+                <td>{{ $batch_unit_price ?? '-' }}</td>
                 <td>{{ $category }}</td>
                 <td class="highlight">{{ $expiry_date }}</td>
                 <td class="highlight">{{ $expiry_date_diffForHumans }}</td>

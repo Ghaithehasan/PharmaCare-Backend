@@ -20,6 +20,7 @@ return new class extends Migration
             $table->date('expiry_date');
             $table->decimal('unit_price', 10, 2)->nullable();
             $table->foreignId('order_id')->nullable()->constrained()->nullOnDelete();
+            $table->dateTime('last_notification_date')->nullable();
             $table->boolean('is_active')->default(true); // حالة الدفعة
 
             $table->timestamps();

@@ -10,6 +10,7 @@ use App\Mail\OrderAcceptedMail;
 use Illuminate\Support\Facades\Mail;
 use App\Events\ConifermOrder;
 use App\Events\CancelledOrder;
+use App\Models\MedicineBatch;
 
 class SupplierOrderController extends Controller
 {
@@ -39,7 +40,7 @@ class SupplierOrderController extends Controller
     }
 
 
- 
+
     /**
      * Show the form for creating a new resource.
      */
@@ -83,14 +84,14 @@ class SupplierOrderController extends Controller
             $order = Order::where('id', $request->order_id)
                          ->where('supplier_id', $supplier->id)
                          ->firstOrFail();
-            
+
             // Update order status
             $order->update([
                 'status' => 'cancelled',
                 'note' => $request->cancellation_reason
             ]);
-            
-            
+
+
             // إطلاق الحدث لإرسال الإيميل للصيدلاني
             $pharmacyEmail = 'matrex663@gmail.com'; // يمكن استبداله لاحقاً بإيميل الصيدلية من قاعدة البيانات
             event(new CancelledOrder($order, $order->supplier, $pharmacyEmail, $CancelReason));
@@ -114,14 +115,14 @@ class SupplierOrderController extends Controller
                          ->where('id', $id)
                          ->where('supplier_id', $supplier->id)
                          ->firstOrFail();
-            
+
             // التحقق من أن الطلبية في حالة "تم الشحن" أو "مقبول"
             if ($order->status !== 'confirmed') {
                 return redirect()->back()->with('error', 'لا يمكن تأكيد استلام هذه الطلبية في حالتها الحالية');
             }
-            
+
             return view('orders.Accept_the_order', compact('order','supplier'));
-            
+
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'حدث خطأ أثناء تحميل صفحة تأكيد الطلبية');
         }
@@ -138,7 +139,7 @@ class SupplierOrderController extends Controller
                          ->where('id', $id)
                          ->where('supplier_id', $supplier->id)
                          ->firstOrFail();
-            
+
 
 
             foreach($order->orderItems as $item)
@@ -148,25 +149,40 @@ class SupplierOrderController extends Controller
                     $medicine->quantity += $item->quantity;
                     $medicine->save();
                 }
+
+                $batchNumber = 'BATCH-' . date('Y') . '-' . str_pad($order->id, 4, '0', STR_PAD_LEFT) . '-' . $item->id;
+
+
+                MedicineBatch::create([
+                    'batch_number'=>$batchNumber,
+                    'medicine_id' => $item->medicine_id,
+                    'order_id' => $item->order_id,
+                    'quantity' => $item->quantity,
+                    'unit_price' => $item->unit_price,
+                    'expiry_date'=> $item->expiry_date,
+                    'last_notification_date' => null,
+                    'is_active'=>true
+                ]);
             }
+            //    $totalQuantity = $medicine->batches()->where('is_active', true)->sum('quantity');
 
             // التحقق من أن الطلبية في حالة "مقبول"
             if ($order->status !== 'confirmed' ) {
                 return redirect()->back()->with('error', 'لا يمكن تأكيد استلام هذه الطلبية في حالتها الحالية');
             }
-            
+
             // تحديث حالة الطلبية إلى "مكتمل"
-            
+
             $order->update([
                 'status' => 'completed',
                 'note' => $order->note ? $order->note . "\nتم تأكيد الاستلام في: " . now()->format('Y-m-d H:i:s') : "تم تأكيد الاستلام في: " . now()->format('Y-m-d H:i:s')
             ]);
-            
-            
+
+
             // إنشاء فاتورة جديدة
             $totalAmount = $order->calculateTotal();
             $invoiceNumber = 'INV-' . date('Y') . '-' . str_pad($order->id, 4, '0', STR_PAD_LEFT);
-            
+
             $invoice = \App\Models\invoices::create([
                 'order_id' => $order->id,
                 'invoice_number' => $invoiceNumber,
@@ -176,14 +192,23 @@ class SupplierOrderController extends Controller
                 'notes' => 'فاتورة طلبية رقم: ' . $order->order_number,
                 'total_amount' => $totalAmount,
             ]);
-            
+
+
+            // اضافة دفعات
+
+            // foreach($order->orderItems as $item)
+            // {
+
+            // }
+
+
             // إطلاق الحدث لإرسال الإيميل مع الفاتورة
             $pharmacyEmail = 'matrex663@gmail.com'; // يمكن تغييرها لاحقاً لإيميل الصيدلية
             event(new \App\Events\SendInvoiceEmail($invoice, $pharmacyEmail));
 
             // عرض صفحة تهنئة للصيدلاني
             return view('orders.order_completed', compact('order','invoice'));
-            
+
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'حدث خطأ أثناء تأكيد استلام الطلبية: ' . $e->getMessage());
         }
@@ -269,7 +294,7 @@ class SupplierOrderController extends Controller
             $order = Order::where('id', $request->order_id)
                          ->where('supplier_id', $supplier->id)
                          ->firstOrFail();
-            
+
             // التحقق من أن الطلبية قابلة للتعديل
             if ($order->status !== 'pending') {
                 return redirect()->back()->with('error', 'لا يمكن تعديل الطلبية في حالتها الحالية');
@@ -358,6 +383,6 @@ class SupplierOrderController extends Controller
         $item->save();
         return back()->with('update_expiry', 'تم تحديث تاريخ الصلاحية بنجاح');
     }
-    
-    
+
+
 }

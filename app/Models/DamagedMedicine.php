@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class DamagedMedicine extends Model
 {
     protected $fillable = [
-        'medicine_id',
+        'medicine_batch_id',
         'quantity_talif',
         'reason',
         'notes',
@@ -21,8 +21,8 @@ class DamagedMedicine extends Model
     /**
      * العلاقة مع الدواء
      */
-    public function medicine()
+    public function batch()
     {
-        return $this->belongsTo(Medicine::class);
+        return $this->belongsTo(MedicineBatch::class, 'medicine_batch_id');
     }
 }

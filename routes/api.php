@@ -118,6 +118,10 @@ Route::prefix('reports')->group(function () {
 
 });
 
+// دفعات الأدوية
+Route::get('medicine-batches', [\App\Http\Controllers\MedicineBatchController::class, 'index'])->middleware([ApiLocalization::class]);
+Route::get('medicine-batches/{id}', [\App\Http\Controllers\MedicineBatchController::class, 'show'])->middleware([ApiLocalization::class]);
+
 
 
 

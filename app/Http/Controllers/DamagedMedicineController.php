@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\DamagedMedicine;
 use App\Models\Medicine;
+use App\Models\MedicineBatch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -22,11 +23,11 @@ class DamagedMedicineController extends Controller
                 'reason' => 'nullable|in:expired,damaged,storage_issue',
                 'date_from' => 'nullable|date',
                 'date_to' => 'nullable|date|after_or_equal:date_from',
-                'medicine_id' => 'nullable|exists:medicines,id'
+                'medicine_batch_id' => 'nullable|exists:medicine_batches,id'
             ]);
 
             // بناء الاستعلام الأساسي
-            $query = DamagedMedicine::with(['medicine' => function($q) {
+            $query = DamagedMedicine::with(['batch.medicine' => function($q) {
                 $q->select('id', 'medicine_name', 'sentific_name', 'arabic_name', 'bar_code');
             }]);
 
@@ -41,7 +42,20 @@ class DamagedMedicineController extends Controller
 
             // تنسيق البيانات
             $damagedMedicines->getCollection()->transform(function ($item) {
-                return $this->formatDamagedMedicineData($item);
+                return [
+                    'id' => $item->id,
+                    'medicine_name' => $item->batch->medicine->medicine_name ?? null,
+                    'barcode' => $item->batch->medicine->bar_code ?? null,
+                    'batch_number' => $item->batch->batch_number ?? null,
+                    'batch_expiry_date' => $item->batch->expiry_date,
+                    'quantity_damaged' => $item->quantity_talif,
+                    'reason' => $item->reason,
+                    'reason_text' => $this->getReasonText($item->reason),
+                    'unit_price' => $item->batch->unit_price ?? 0,
+                    'total_loss' => ($item->quantity_talif * ($item->batch->unit_price ?? 0)),
+                    'damaged_at' => $item->damaged_at,
+                    'notes' => $item->notes
+                ];
             });
 
             // حساب الإحصائيات الأساسية
@@ -77,14 +91,16 @@ class DamagedMedicineController extends Controller
      */
     private function applyFilters($query, array $filters)
     {
-        // فلتر البحث
+
+
         if (!empty($filters['search'])) {
             $search = $filters['search'];
-            $query->whereHas('medicine', function($q) use ($search) {
-                $q->where('medicine_name', 'like', "%{$search}%")
+            $query->whereHas('batch.medicine', function($q) use ($search) {
+                $q->where('batch_number',"{$search}")
+                  ->orWhere('medicine_name', 'like', "%{$search}%")
                   ->orWhere('sentific_name', 'like', "%{$search}%")
                   ->orWhere('arabic_name', 'like', "%{$search}%")
-                  ->orWhere('bar_code', 'like', $search);
+                  ->orWhere('bar_code', 'like', "{$search}");
             });
         }
 
@@ -103,31 +119,9 @@ class DamagedMedicineController extends Controller
         }
 
         // فلتر الدواء
-        if (!empty($filters['medicine_id'])) {
-            $query->where('medicine_id', $filters['medicine_id']);
+        if (!empty($filters['medicine_batch_id'])) {
+            $query->where('medicine_batch_id', $filters['medicine_batch_id']);
         }
-    }
-
-    /**
-     * تنسيق بيانات الدواء التالف
-     */
-    private function formatDamagedMedicineData($item)
-    {
-        return [
-            'id' => $item->id,
-            'medicine' => [
-                'id' => $item->medicine->id,
-                'name' => $item->medicine->medicine_name,
-                'scientific_name' => $item->medicine->sentific_name,
-                'arabic_name' => $item->medicine->arabic_name,
-                'barcode' => $item->medicine->bar_code
-            ],
-            'quantity_damaged' => $item->quantity_talif,
-            'reason' => $item->reason,
-            'reason_text' => $this->getReasonText($item->reason),
-            'damaged_at' => $item->damaged_at,
-            'notes' => $item->notes
-        ];
     }
 
     /**
@@ -178,7 +172,7 @@ class DamagedMedicineController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'medicine_id' => 'required|exists:medicines,id',
+            'batch_id' => 'required|exists:medicine_batches,id',
             'quantity_talif' => 'required|integer|min:1',
             'reason' => 'required|in:expired,damaged,storage_issue',
             'notes' => 'nullable|string|max:1000'
@@ -187,10 +181,10 @@ class DamagedMedicineController extends Controller
         try {
             DB::beginTransaction();
 
-            $medicine = Medicine::findOrFail($request->medicine_id);
-            
+            $medicine_batch = MedicineBatch::findOrFail($request->batch_id);
+
             // التحقق من أن الكمية المتوفرة كافية
-            if ($medicine->quantity < $request->quantity_talif) {
+            if ($medicine_batch->quantity < $request->quantity_talif) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'الكمية المطلوبة غير متوفرة في المخزون',
@@ -200,20 +194,27 @@ class DamagedMedicineController extends Controller
 
             // إنشاء سجل الدواء التالف
             $damagedMedicine = DamagedMedicine::create([
-                'medicine_id' => $request->medicine_id,
+                'medicine_batch_id' => $request->batch_id,
                 'quantity_talif' => $request->quantity_talif,
                 'reason' => $request->reason,
                 'notes' => $request->notes
             ]);
 
             // تحديث كمية الدواء في المخزون
-            $medicine->decrement('quantity', $request->quantity_talif);
+            $medicine_batch->decrement('quantity', $request->quantity_talif);
+            $medicine_batch->medicine->decrement('quantity', $request->quantity_talif);
+
+            if ($medicine_batch->quantity == 0) {
+                $medicine_batch->is_active = false;
+                $medicine_batch->save();
+            }
 
             DB::commit();
             return response()->json([
                 'status' => 'success',
                 'message' => 'تم تسجيل الدواء التالف بنجاح',
-                'data' => $damagedMedicine->load('medicine'),
+                // 'data' => $damagedMedicine->load('medicine'),
+                'data' => $damagedMedicine->load(['batch', 'batch.medicine']),
                 'status_code' => 201
             ], 201);
 
@@ -227,4 +228,7 @@ class DamagedMedicineController extends Controller
             ], 500);
         }
     }
-} 
+}
+
+
+

@@ -135,7 +135,7 @@ class InventoryCountController extends Controller
     // عرض تفاصيل عملية جرد
     public function show($id)
     {
-        $inventoryCount = InventoryCount::with(['items.medicine', 'createdBy', 'approvedBy'])
+        $inventoryCount = InventoryCount::with(['items.medicine', 'createdBy'])
             ->findOrFail($id);
 
         return response()->json([
@@ -150,7 +150,6 @@ class InventoryCountController extends Controller
         $inventoryCounts = InventoryCount::query()
             ->with([
                 'createdBy:id,name',
-                'approvedBy:id,name',
                 'items' => function ($query) {
                     $query->select('id', 'inventory_count_id', 'medicine_id', 'system_quantity', 'actual_quantity', 'difference')
                         ->with(['medicine:id,medicine_name,bar_code']);
@@ -162,7 +161,6 @@ class InventoryCountController extends Controller
                 'count_date',
                 'status',
                 'created_by',
-                'approved_by',
                 'created_at'
             ])
             ->latest()

@@ -30,7 +30,7 @@ class MedicineController extends Controller
         ]);
 
         // بناء الاستعلام الأساسي مع علاقة order_items
-        $query = Medicine::with(['category', 'orderItems'])
+        $query = Medicine::with(['category', 'medicineForm', 'orderItems'])
             ->select([
                 'id',
                 'medicine_name',
@@ -43,8 +43,11 @@ class MedicineController extends Controller
                 'supplier_price',
                 'people_price',
                 'tax_rate',
-                'category_id'
+                'category_id',
+                'medicine_form_id'
             ]);
+
+
 
         // تطبيق الفلاتر
         $this->applyFilters($query, $validated);
@@ -119,23 +122,23 @@ class MedicineController extends Controller
             $now = Carbon::now();
             switch ($filters['expiry_filter']){
                 case 'expired':
-                    $query->whereHas('orderItems', function($q) use ($now) {
+                    $query->whereHas('batches', function($q) use ($now) {
                         $q->where('expiry_date', '<', $now)
                           ->where('quantity', '>', 0); // فقط الدفعات التي لا تزال في المخزون
-                    })->where('quantity', '>', 0); // التأكد من وجود كمية فعلية
+                    })->where('quantity','>',0); // التأكد من وجود كمية فعلية
                     break;
                 case 'expiring_soon':
-                    $query->whereHas('orderItems', function($q) use ($now) {
+                    $query->whereHas('batches', function($q) use ($now) {
                         $q->where('expiry_date', '>', $now)
                           ->where('expiry_date', '<=', $now->copy()->addDays(30))
                           ->where('quantity', '>', 0); // فقط الدفعات التي لا تزال في المخزون
-                    })->where('quantity', '>', 0); // التأكد من وجود كمية فعلية
+                    })->where('quantity','>',0); // التأكد من وجود كمية فعلية
                     break;
                 case 'valid':
-                    $query->whereHas('orderItems', function($q) use ($now) {
+                    $query->whereHas('batches', function($q) use ($now) {
                         $q->where('expiry_date', '>', $now)
                           ->where('quantity', '>', 0); // فقط الدفعات التي لا تزال في المخزون
-                    })->where('quantity', '>', 0); // التأكد من وجود كمية فعلية
+                    })->where('quantity','>',0); // التأكد من وجود كمية فعلية
                     break;
             }
         }
@@ -186,48 +189,35 @@ class MedicineController extends Controller
      * حساب معلومات تاريخ الانتهاء من order_items
      */
     private function calculateExpiryInfo($medicine)
-    {
-        $now = Carbon::now();
-        $orderItems = $medicine->orderItems()->where('quantity', '>', 0)->get();
+{
+    $now = Carbon::now();
+    $batches = $medicine->batches()->where('quantity', '>', 0)->get();
 
-        $hasExpired = false;
-        $hasExpiringSoon = false;
-        $earliestExpiry = null;
-        $expiredQuantity = 0;
-        $expiringSoonQuantity = 0;
+    $hasExpired = false;
+    $hasExpiringSoon = false;
+    $earliestExpiry = null;
 
-        // الكمية الفعلية المتوفرة حالياً
-        $actualQuantity = $medicine->quantity;
+    foreach ($batches as $batch) {
+        if ($batch->expiry_date) {
+            if ($batch->expiry_date < $now) {
+                $hasExpired = true;
+            } elseif ($batch->expiry_date <= $now->copy()->addDays(30)) {
+                $hasExpiringSoon = true;
+            }
 
-        foreach ($orderItems as $item) {
-            if ($item->expiry_date) {
-                // حساب نسبة الكمية من هذه الدفعة مقارنة بالكمية الإجمالية
-                $itemRatio = $item->quantity > 0 ? min(1, $actualQuantity / $item->quantity) : 0;
-                $availableFromThisBatch = $item->quantity * $itemRatio;
-
-                if ($item->expiry_date < $now) {
-                    $hasExpired = true;
-                    $expiredQuantity += $availableFromThisBatch;
-                } elseif ($item->expiry_date <= $now->copy()->addDays(30)) {
-                    $hasExpiringSoon = true;
-                    $expiringSoonQuantity += $availableFromThisBatch;
-                }
-
-                if (!$earliestExpiry || $item->expiry_date < $earliestExpiry) {
-                    $earliestExpiry = $item->expiry_date;
-                }
+            if (!$earliestExpiry || $batch->expiry_date < $earliestExpiry) {
+                $earliestExpiry = $batch->expiry_date;
             }
         }
-
-        return [
-            'has_expired' => $hasExpired,
-            'has_expiring_soon' => $hasExpiringSoon,
-            'earliest_expiry_date' => $earliestExpiry,
-            'expired_quantity' => round($expiredQuantity, 2),
-            'expiring_soon_quantity' => round($expiringSoonQuantity, 2),
-            'total_available_quantity' => $actualQuantity
-        ];
     }
+
+
+    return [
+        'has_expired' => $hasExpired,
+        'has_expiring_soon' => $hasExpiringSoon,
+        'earliest_expiry_date' => $earliestExpiry,
+    ];
+}
 
     public function store(Request $request)
     {

@@ -14,6 +14,7 @@ class MedicineBatch extends Model
         'unit_price',
         'order_id',
         'is_active',
+        'last_notification_date'
     ];
 
 
@@ -30,6 +31,12 @@ class MedicineBatch extends Model
     public function order()
     {
         return $this->belongsTo(Order::class);
+    }
+
+
+    public function damagedRecords()
+    {
+        return $this->hasMany(DamagedMedicine::class, 'medicine_batch_id');
     }
 
 }

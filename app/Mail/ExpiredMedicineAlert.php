@@ -19,14 +19,16 @@ class ExpiredMedicineAlert extends Mailable
      * Create a new message instance.
      */
     public $medicine;
+    public $batch;
     public $notificationType;
     public $expire_date;
 
-    public function __construct(Medicine $medicine, $expire_date , string $notificationType)
+    public function __construct(Medicine $medicine, $expire_date, string $notificationType, $batch = null)
     {
         $this->medicine = $medicine;
-        $this->expire_date=$expire_date;
+        $this->expire_date = $expire_date;
         $this->notificationType = $notificationType;
+        $this->batch = $batch; // أضف هذا
     }
 
     /**
@@ -50,12 +52,15 @@ class ExpiredMedicineAlert extends Mailable
             view: 'mail.expired_medicine_alert',
             with: [
                 'medicine_name' => $this->medicine->medicine_name,
-                'quantity' => $this->medicine->quantity,
                 'category' => $this->medicine->category->name,
                 'expiry_date' => $expire_date->format('Y-m-d'),
                 'expiry_date_diffForHumans' => $expire_date->diffForHumans(),
                 'notificationType' => $this->notificationType,
                 'supportEmail' => 'support@gmail.com',
+                // معلومات الدفعة
+                'batch_number' => $this->batch?->batch_number,
+                'batch_quantity' => $this->batch?->quantity,
+                'batch_unit_price' => $this->batch?->unit_price,
             ],
         );
     }
