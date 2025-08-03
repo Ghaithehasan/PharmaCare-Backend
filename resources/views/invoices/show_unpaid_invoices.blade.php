@@ -16,8 +16,12 @@
         font-weight: 600;
         box-shadow: 0 2px 8px rgba(255,193,7,0.08);
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 12px;
+    }
+    .unpaid-alert .text-danger {
+        color: #dc3545 !important;
+        font-size: 1.1em;
     }
     .all-invoices-card {
         background: linear-gradient(120deg, #f8fafc 60%, #e8f4fd 100%);
@@ -99,9 +103,9 @@
         padding-bottom: 8px;
         font-size: 1.08em;
     }
-    .table th, .table td { 
-        vertical-align: middle; 
-        text-align: center; 
+    .table th, .table td {
+        vertical-align: middle;
+        text-align: center;
     }
     .table th {
         background: #f8f9fa;
@@ -149,6 +153,50 @@
         box-shadow: 0 4px 12px rgba(40,167,69,0.25) !important;
         transform: translateY(-2px);
     }
+    .invoice-info .text-danger {
+        background: linear-gradient(90deg, #dc3545 0%, #c82333 100%);
+        color: white !important;
+        padding: 4px 8px;
+        border-radius: 8px;
+        font-weight: 700;
+        box-shadow: 0 1px 3px rgba(220,53,69,0.2);
+    }
+    .invoice-info div {
+        transition: all 0.2s ease;
+    }
+    .invoice-info div:hover {
+        transform: translateX(2px);
+    }
+    .remaining-amount-badge {
+        background: linear-gradient(90deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-weight: 700;
+        box-shadow: 0 2px 4px rgba(220,53,69,0.3);
+        display: inline-block;
+        margin-right: 5px;
+        transition: all 0.2s ease;
+    }
+    .remaining-amount-badge:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 6px rgba(220,53,69,0.4);
+    }
+    .badge-success {
+        background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+        color: white;
+        font-weight: 600;
+    }
+    .badge-danger {
+        background: linear-gradient(90deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        font-weight: 600;
+    }
+    .badge-warning {
+        background: linear-gradient(90deg, #ffc107 0%, #ff9800 100%);
+        color: white;
+        font-weight: 600;
+    }
     @media (max-width: 600px) {
         .all-invoices-card {
             padding: 16px 6px 12px 6px;
@@ -176,7 +224,16 @@
     <div class="col-xl-12">
         <div class="unpaid-alert">
             <i class="fas fa-exclamation-triangle fa-lg"></i>
-            <span>تنبيه: لديك فواتير غير مدفوعة من الصيدلية. يرجى متابعة التحصيل والتواصل مع صيدلية الهدى في حال التأخير.</span>
+            <div>
+                <div><strong>تنبيه:</strong> لديك فواتير غير مدفوعة من الصيدلية.</div>
+                <div class="mt-2">
+                    <strong>إجمالي المبالغ المستحقة:</strong>
+                    <span class="remaining-amount-badge" style="margin-right: 0;">
+                        {{ number_format($invoices->sum('total_amount'), 2) }} ليرة سوري
+                    </span>
+                </div>
+                <div class="mt-1">يرجى متابعة التحصيل والتواصل مع صيدلية الهدى في حال التأخير.</div>
+            </div>
         </div>
         @if($invoices->count() == 0)
             <div class="text-center py-5">
@@ -198,6 +255,7 @@
                         <div><i class="fas fa-calendar-alt ml-1"></i> <strong>تاريخ الفاتورة:</strong> {{ \Carbon\Carbon::parse($invoice->invoice_date)->format('Y/m/d') }}</div>
                         <div><i class="fas fa-calendar-check ml-1"></i> <strong>تاريخ الاستحقاق:</strong> {{ \Carbon\Carbon::parse($invoice->due_date)->format('Y/m/d') }}</div>
                         <div><i class="fas fa-money-bill ml-1"></i> <strong>الإجمالي:</strong> {{ number_format($invoice->total_amount, 2) }} ليرة سوري</div>
+                        <div><i class="fas fa-exclamation-triangle ml-1"></i> <strong>المبلغ المتبقي:</strong> <span class="remaining-amount-badge">{{ number_format($invoice->total_amount, 2) }} ليرة سوري</span></div>
                     </div>
                     <div class="invoice-details">
                         <h6><i class="fas fa-list-ul ml-1"></i> ملخص الطلبية</h6>
@@ -225,6 +283,41 @@
                                 </tbody>
                             </table>
                         </div>
+                        @if($invoice->payments && $invoice->payments->count() > 0)
+                            <div class="mt-3">
+                                <h6 class="text-info"><i class="fas fa-history ml-1"></i> جميع المدفوعات</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered">
+                                        <thead class="table-info">
+                                            <tr>
+                                                <th>التاريخ</th>
+                                                <th>المبلغ</th>
+                                                <th>طريقة الدفع</th>
+                                                <th>الحالة</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($invoice->payments as $payment)
+                                                <tr>
+                                                    <td>{{ \Carbon\Carbon::parse($payment->payment_date)->format('Y/m/d') }}</td>
+                                                    <td class="font-weight-bold">{{ number_format($payment->paid_amount, 2) }} ل.س</td>
+                                                    <td>{{ $payment->payment_method }}</td>
+                                                    <td>
+                                                        @if($payment->status == 'confirmed')
+                                                            <span class="badge badge-success">مؤكد</span>
+                                                        @elseif($payment->status == 'rejected')
+                                                            <span class="badge badge-danger">مرفوض</span>
+                                                        @elseif($payment->status == 'pending')
+                                                            <span class="badge badge-warning">معلق</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        @endif
                         <div class="actions">
                             <a href="{{ route('invoices.download', $invoice->id) }}" class="btn btn-sm btn-outline-primary" title="تحميل الفاتورة"><i class="fas fa-download"></i> تحميل</a>
                             <a href="{{ route('supplier.invoices.show-pdf', $invoice->id) }}" class="btn btn-sm btn-outline-info" title="عرض الفاتورة" target="_blank"><i class="fas fa-eye"></i> عرض</a>

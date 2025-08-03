@@ -48,13 +48,13 @@ Route::middleware('auth')->group(function () {
             ->name('profile');
         Route::post('/update/profile', [SupplierController::class, 'update'])
             ->name('update.profile');
-        
+
         // Account Settings
         Route::get('/account', [SupplierController::class, 'show_account'])
             ->name('account.settings');
         Route::delete('/delete/account', [SupplierController::class, 'delete_account'])
             ->name('delete.account');
-        
+
         // Notifications
         Route::prefix('notifications')->name('notifications.')->group(function () {//supplier.notifications.show
             Route::get('/', [SupplierNotificationController::class, 'show_all_notifications'])
@@ -78,7 +78,8 @@ Route::middleware('auth')->group(function () {
             Route::get('exports_orders',[ SupplierOrderController::class, 'ExportOrder'])->name('exports_orders');
             Route::get('completed-order',[ SupplierOrderController::class, 'show_completed_orders'])->name('show_completed_order');
             Route::post('/supplier/orders/update-expiry/{item}', [SupplierOrderController::class, 'updateExpiry'])->name('update_expiry');
-        
+            Route::post('/supplier/orders/update-expiry-bulk', [SupplierOrderController::class, 'updateExpiryBulk'])->name('update_expiry_bulk');
+
         });
 
         // Invoices Routes
@@ -100,7 +101,7 @@ Route::middleware('auth')->group(function () {
             Route::get('show-all-pending-payments',[PaymentController::class,'show_all_pending_payments'])->name('pending_payments');
             Route::get('show-all-confirmed-payments',[PaymentController::class,'show_all_confirmed_payments'])->name('confirmed_payments');
             Route::get('show-all-rejected-payments',[PaymentController::class,'show_all_rejected_payments'])->name('rejected_payments');
-            
+
             Route::post('chang-status/{id}',[PaymentController::class,'change_payment_status'])->name('update_status');
         });
 

@@ -10,7 +10,7 @@ class SupplierNotificationController extends Controller
     public function show_all_notifications()
     {
         $supplier = auth()->user();
-        
+
         // Get notifications with proper ordering and pagination
         $notifications = $supplier->notifications()
             ->orderBy('created_at', 'desc')
@@ -42,12 +42,14 @@ class SupplierNotificationController extends Controller
         ));
     }
 
+
+    
     public function markAsRead($id)
     {
-        
+
         $supplier = auth()->user();
         $notification = $supplier->notifications()->findOrFail($id);
-        
+
         $notification->update(['is_read' => true]);
         $notification->update(['read_at'=> now()]);
         if (request()->ajax()) {
@@ -57,7 +59,7 @@ class SupplierNotificationController extends Controller
                 'unreadCount' => auth()->user()->notifications()->where('is_read', false)->count()
             ]);
         }
-        
+
         return redirect()->back()->with('success', 'تم تحديد الإشعار كمقروء بنجاح');
     }
 
@@ -67,7 +69,7 @@ class SupplierNotificationController extends Controller
         $supplier->notifications()->where('is_read', false)->update(['read_at' => now()]);
         $supplier->notifications()->where('is_read', false)->update(['is_read' => true]);
         // $supplier
-        
+
         if (request()->ajax()) {
             return response()->json([
                 'success' => true,
@@ -75,7 +77,7 @@ class SupplierNotificationController extends Controller
                 'unreadCount' => 0
             ]);
         }
-        
+
         return redirect()->back()->with('success', 'تم تحديد جميع الإشعارات كمقروءة بنجاح');
     }
 

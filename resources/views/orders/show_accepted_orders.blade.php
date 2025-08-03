@@ -4,8 +4,8 @@
 @stop
 @section('css')
 <link href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.3.0/css/font-awesome.css" rel="stylesheet" type='text/css'>
-<link 
-  href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.3.0/css/font-awesome.css" 
+<link
+  href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.3.0/css/font-awesome.css"
   rel="stylesheet"  type='text/css'>
     <!-- Internal Data table css -->
     <link href="{{ URL::asset('assets/plugins/datatable/css/dataTables.bootstrap4.min.css') }}" rel="stylesheet" />
@@ -235,7 +235,7 @@
 <div class="row">
 
     <div class="col-xl-12">
-    
+
         @if($orders->count() > 0)
             @foreach($orders as $order)
                 <div class="modern-order-card">
@@ -254,14 +254,14 @@
                             $orderDate = \Carbon\Carbon::parse($order->order_date);
                             $deliveryDate = \Carbon\Carbon::parse($order->delevery_date);
                             $now = \Carbon\Carbon::now();
-                            
+
                             // حساب الأيام المتبقية
                             $daysLeft = round($now->diffInDays($deliveryDate, false));
-                            
+
                             // حساب النسبة المئوية
                             $totalDays = $orderDate->diffInDays($deliveryDate);
                             $passedDays = $orderDate->diffInDays($now);
-                            
+
                             if($totalDays <= 0) {
                                 $progress = 100;
                             } else {
@@ -312,35 +312,35 @@
                     <!-- إضافة جدول الأصناف مع إدخال تاريخ الصلاحية -->
                     @if($order->orderItems && $order->orderItems->count())
                         <div class="table-responsive mt-3">
-                            <table class="table table-bordered table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>اسم الدواء</th>
-                                        <th>الكمية</th>
-                                        <th>تاريخ الصلاحية</th>
-                                        <th>حفظ</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($order->orderItems as $item)
+                            <form method="POST" action="{{ route('supplier.orders.update_expiry_bulk') }}" id="expiry_form_{{ $order->id }}">
+                                @csrf
+                                <input type="hidden" name="order_id" value="{{ $order->id }}">
+                                <table class="table table-bordered table-striped">
+                                    <thead>
                                         <tr>
-                                            <td>{{ $item->medicine->medicine_name ?? '-' }}</td>
-                                            <td>{{ $item->quantity }}</td>
-                                            <td>
-                                                <form method="POST" action="{{ route('supplier.orders.update_expiry', $item->id) }}" class="d-flex align-items-center">
-                                                    @csrf
-                                                    <input type="date" name="expiry_date" class="form-control" value="{{ $item->expiry_date ? \Carbon\Carbon::parse($item->expiry_date)->format('Y-m-d') : '' }}" required>
-                                            </td>
-                                            <td>
-                                                    <button type="submit" class="btn btn-success btn-sm">
-                                                        <i class="fas fa-save"></i> حفظ
-                                                    </button>
-                                                </form>
-                                            </td>
+                                            <th>اسم الدواء</th>
+                                            <th>الكمية</th>
+                                            <th>تاريخ الصلاحية</th>
                                         </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($order->orderItems as $item)
+                                            <tr>
+                                                <td>{{ $item->medicine->medicine_name ?? '-' }}</td>
+                                                <td>{{ $item->quantity }}</td>
+                                                <td>
+                                                    <input type="date" name="expiry_dates[{{ $item->id }}]" class="form-control" value="{{ $item->expiry_date ? \Carbon\Carbon::parse($item->expiry_date)->format('Y-m-d') : '' }}" required>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                                <div class="text-center mt-3">
+                                    <button type="submit" class="btn btn-success btn-lg">
+                                        <i class="fas fa-save ml-1"></i> حفظ تواريخ الصلاحية
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     @endif
                 </div>
@@ -386,6 +386,6 @@
 
     <script>
         // تحديث حالة المنتج
-       
+
     </script>
-@endsection 
+@endsection

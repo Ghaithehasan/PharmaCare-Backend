@@ -95,7 +95,7 @@ class OrderController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'status' => false,
                 'status_code' => 500,
@@ -230,6 +230,122 @@ class OrderController extends Controller
         ]);
     }
 
+    public function show_pending_orders()
+    {
+        $orders = Order::with(['orderItems'])->where('status', 'pending')->get();
+
+        $data = $orders->map(function($order) {
+            $total_value = $order->orderItems->sum('total_price');
+            $products_count = $order->orderItems->count();
+
+            return [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'order_date' => $order->order_date,
+                'status' => $order->status,
+                'notes' => $order->note,
+                'total_value' => $total_value,
+                'products_count' => $products_count,
+                'created_at' => $order->created_at,
+                'updated_at' => $order->updated_at,
+            ];
+        });
+
+        return response()->json([
+            'status' => true,
+            'status_code' => 200,
+            'message' => 'تم جلب الطلبات المعلقة بنجاح',
+            'data' => $data
+        ]);
+    }
+
+    public function show_confirmed_orders()
+    {
+        $orders = Order::with(['orderItems'])->where('status', 'confirmed')->get();
+
+        $data = $orders->map(function($order) {
+            $total_value = $order->orderItems->sum('total_price');
+            $products_count = $order->orderItems->count();
+
+            return [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'order_date' => $order->order_date,
+                'status' => $order->status,
+                'notes' => $order->note,
+                'total_value' => $total_value,
+                'products_count' => $products_count,
+                'created_at' => $order->created_at,
+                'updated_at' => $order->updated_at,
+            ];
+        });
+
+        return response()->json([
+            'status' => true,
+            'status_code' => 200,
+            'message' => 'تم جلب الطلبات المقبولة بنجاح',
+            'data' => $data
+        ]);
+    }
+
+    public function show_completed_orders()
+    {
+        $orders = Order::with(['orderItems'])->where('status', 'completed')->get();
+
+        $data = $orders->map(function($order) {
+            $total_value = $order->orderItems->sum('total_price');
+            $products_count = $order->orderItems->count();
+
+            return [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'order_date' => $order->order_date,
+                'status' => $order->status,
+                'notes' => $order->note,
+                'total_value' => $total_value,
+                'products_count' => $products_count,
+                'created_at' => $order->created_at,
+                'updated_at' => $order->updated_at,
+            ];
+        });
+
+        return response()->json([
+            'status' => true,
+            'status_code' => 200,
+            'message' => 'تم جلب الطلبات المكتملة بنجاح',
+            'data' => $data
+        ]);
+    }
+
+    public function show_cancelled_orders()
+    {
+        $orders = Order::with(['orderItems'])->where('status', 'cancelled')->get();
+
+        $data = $orders->map(function($order) {
+            $total_value = $order->orderItems->sum('total_price');
+            $products_count = $order->orderItems->count();
+
+            return [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'order_date' => $order->order_date,
+                'status' => $order->status,
+                'notes' => $order->note,
+                'total_value' => $total_value,
+                'products_count' => $products_count,
+                'created_at' => $order->created_at,
+                'updated_at' => $order->updated_at,
+            ];
+        });
+
+        return response()->json([
+            'status' => true,
+            'status_code' => 200,
+            'message' => 'تم جلب الطلبات الملغية بنجاح',
+            'data' => $data
+        ]);
+    }
+
     public function destroy($id)
     {
 
@@ -251,13 +367,13 @@ class OrderController extends Controller
             }
 
             // التحقق من حالة الطلبية
-            if ($order->status === 'completed') {
+            if ($order->status === 'completed' || $order->status === 'confirmed') {
                 return response()->json([
                     'status' => false,
                     'status_code' => 400,
-                    'message' => 'لا يمكن حذف طلبية مكتملة',
+                    'message' => 'لا يمكن حذف طلبية مكتملة أو مقبولة',
                     'errors' => [
-                        'status' => ['الطلبية مكتملة ولا يمكن حذفها']
+                        'status' => ['الطلبية مكتملة أو مقبولة ولا يمكن حذفها']
                     ]
                 ], 400);
             }
@@ -266,7 +382,7 @@ class OrderController extends Controller
             SupplierPayment::where('supplier_id', $order->supplier_id)
                 ->delete();
 
- 
+
 
             // حذف الطلبية
             $order->delete();
@@ -285,7 +401,7 @@ class OrderController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'status' => false,
                 'status_code' => 500,

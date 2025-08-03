@@ -386,9 +386,9 @@
 												@php
 													$data = json_decode($notification->data, true);
 												@endphp
-												
+
 												@switch($notification->notification_type)
-													@case('new_order')
+													@case('order')
 														<div class="data-item">
 															<div class="data-label">رقم الطلبية</div>
 															<div class="data-value">{{ $data['order_number'] ?? '-' }}</div>
@@ -453,19 +453,88 @@
 														</div>
 														@break
 
-													@case('status_update')
+
+
+													@case('payment')
 														<div class="data-item">
-															<div class="data-label">الحالة السابقة</div>
-															<div class="data-value">{{ $data['old_status'] ?? '-' }}</div>
+															<div class="data-label">رقم الفاتورة</div>
+															<div class="data-value">{{ $data['invoice_number'] ?? '-' }}</div>
+														</div>
+														@if(isset($data['order_number']))
+														<div class="data-item">
+															<div class="data-label">رقم الطلبية</div>
+															<div class="data-value">{{ $data['order_number'] ?? '-' }}</div>
+														</div>
+														@endif
+														<div class="data-item">
+															<div class="data-label">مبلغ الدفع</div>
+															<div class="data-value price-value">{{ number_format($data['amount'] ?? 0, 2) }} ل.س</div>
 														</div>
 														<div class="data-item">
-															<div class="data-label">الحالة الجديدة</div>
-															<div class="data-value">{{ $data['new_status'] ?? '-' }}</div>
+															<div class="data-label">طريقة الدفع</div>
+															<div class="data-value">
+																@if(($data['payment_method'] ?? '') == 'cash')
+																	نقداً
+																@elseif(($data['payment_method'] ?? '') == 'bank_transfer')
+																	تحويل بنكي
+																@else
+																	{{ $data['payment_method'] ?? '-' }}
+																@endif
+															</div>
 														</div>
 														<div class="data-item">
-															<div class="data-label">سبب التحديث</div>
-															<div class="data-value">{{ $data['reason'] ?? '-' }}</div>
+															<div class="data-label">تاريخ الدفع</div>
+															<div class="data-value">{{ $data['payment_date'] ?? '-' }}</div>
 														</div>
+														<div class="data-item">
+															<div class="data-label">حالة الدفع</div>
+															<div class="data-value">
+																@if(($data['payment_status'] ?? '') == 'pending')
+																	معلق
+																@elseif(($data['payment_status'] ?? '') == 'confirmed')
+																	مؤكد
+																@elseif(($data['payment_status'] ?? '') == 'rejected')
+																	مرفوض
+																@else
+																	{{ $data['payment_status'] ?? '-' }}
+																@endif
+															</div>
+														</div>
+														@if(isset($data['total_invoice_amount']))
+														<div class="data-item">
+															<div class="data-label">إجمالي الفاتورة</div>
+															<div class="data-value price-value">{{ number_format($data['total_invoice_amount'] ?? 0, 2) }} ل.س</div>
+														</div>
+														@endif
+														@if(isset($data['remaining_amount']))
+														<div class="data-item">
+															<div class="data-label">المبلغ المتبقي</div>
+															<div class="data-value price-value">{{ number_format($data['remaining_amount'] ?? 0, 2) }} ل.س</div>
+														</div>
+														@endif
+														@break
+
+													@case('system')
+														<div class="data-item">
+															<div class="data-label">نوع الإشعار</div>
+															<div class="data-value">{{ $data['system_type'] ?? '-' }}</div>
+														</div>
+														<div class="data-item">
+															<div class="data-label">الرسالة</div>
+															<div class="data-value">{{ $data['system_message'] ?? '-' }}</div>
+														</div>
+														@if(isset($data['action_required']))
+															<div class="data-item">
+																<div class="data-label">إجراء مطلوب</div>
+																<div class="data-value">{{ $data['action_required'] ? 'نعم' : 'لا' }}</div>
+															</div>
+														@endif
+														@if(isset($data['priority']))
+															<div class="data-item">
+																<div class="data-label">الأولوية</div>
+																<div class="data-value">{{ $data['priority'] ?? '-' }}</div>
+															</div>
+														@endif
 														@break
 
 													@default

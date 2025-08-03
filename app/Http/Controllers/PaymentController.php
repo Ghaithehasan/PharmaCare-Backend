@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\PaymentEmailEvent;
+use App\Events\PaymentRejectEmailEvent;
 use Illuminate\Http\Request;
 use App\Models\Invoices;
 use App\Models\Payment;
+use App\Models\SupplierNotification;
 
 class PaymentController extends Controller
 {
@@ -16,7 +19,6 @@ class PaymentController extends Controller
             'payment_method' => 'required|in:cash,bank_transfer',
             'payment_date'=> 'required|date',
             'payment_proof' => 'required|file|mimes:jpg,jpeg,png,pdf|max:10240',
-            'status'=> 'required|in:pending,confirmed,rejected',
             'notes'=>'nullable|string|max:500'
         ]);
 
@@ -33,22 +35,43 @@ class PaymentController extends Controller
             'payment_method' => $validated['payment_method'],
             'payment_date' => $validated['payment_date'],
             'payment_proof' => $filePath,
-            'status' => $validated['status'],
+            'status' => 'pending', // تأكيد تلقائي للدفع من الصيدلاني
             'notes' => $validated['notes'] ?? null,
         ]);
 
+        event(new PaymentEmailEvent($payment));
+
+        // جلب معلومات الفاتورة والمبلغ المتبقي
+        $invoice = $payment->invoice;
+        $totalPaid = $invoice->payments()->where('status', 'pending')->sum('paid_amount');
+        $remainingAmount = $invoice->total_amount - $totalPaid;
+
         if($payment) {
             return response()->json([
-                'status' => true,
-                'message' => 'تم إضافة الدفع بنجاح وجاري مراجعتها.',
-                'payment' => $payment,
-                'payment_id' => $payment->id,
-                'payment_proof_url' => $filePath ? asset('storage/' . $filePath) : null,
+                'success' => true,
+                'message' => 'تم إضافة الدفع بنجاح',
+                'data' => [
+                    'payment' => [
+                        'id' => $payment->id,
+                        'amount' => $payment->paid_amount,
+                        'method' => $payment->payment_method,
+                        'date' => $payment->payment_date,
+                        'status' => $payment->status,
+                        'proof_url' => $filePath ? asset('storage/' . $filePath) : null
+                    ],
+                    'invoice' => [
+                        'id' => $invoice->id,
+                        'number' => $invoice->invoice_number,
+                        'total_amount' => $invoice->total_amount,
+                        'remaining_amount' => $remainingAmount,
+                        'is_paid' => $remainingAmount <= 0
+                    ]
+                ]
             ], 201);
         } else {
             return response()->json([
-                'status' => false,
-                'message' => 'حدث خطأ أثناء إضافة المدفوعة.'
+                'success' => false,
+                'message' => 'حدث خطأ أثناء إضافة المدفوعة'
             ], 500);
         }
     }
@@ -56,7 +79,7 @@ class PaymentController extends Controller
     public function show_all_payments()
     {
         $supplier = auth()->user();
-    
+
         $payments = \App\Models\Payment::whereHas('invoice', function($query) use ($supplier) {
             $query->whereHas('order', function($q) use ($supplier) {
                 $q->where('supplier_id', $supplier->id);
@@ -104,7 +127,7 @@ class PaymentController extends Controller
 
     public function show_all_confirmed_payments()
     {
-        
+
         $supplier = auth()->user();
         $payments_confirmed = \App\Models\Payment::whereHas('invoice',function($query) use($supplier){
             $query->whereHas('order',function($q) use ($supplier){
@@ -132,26 +155,30 @@ class PaymentController extends Controller
 
         try {
             $payment = Payment::findOrFail($id);
-            
+
             $supplier = auth()->user();
-            
+
             // التحقق من أن المدفوعة معلقة
             if ($payment->status !== 'pending') {
                 return redirect()->back()->with('error', 'لا يمكن تعديل حالة مدفوعة غير معلقة');
             }
 
             $payment->status = $request->status;
-            
+
             if ($request->status === 'confirmed') {
                 $payment->notes = $request->notes;
                 $message = 'تم قبول المدفوعة بنجاح';
                 $payment->save();
                 // تحديث حالة الفاتورة بناءً على إجمالي المدفوعات
                 $this->updateInvoiceStatus($payment->invoice);
-                
+
             } else {
                 $payment->notes = $request->rejection_reason;
                 $message = 'تم رفض المدفوعة بنجاح';
+                $payment->save();
+
+                // إطلاق الحدث لإرسال إيميل رفض الدفعة
+                event(new \App\Events\PaymentRejectEmailEvent($payment));
             }
 
 

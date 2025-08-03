@@ -12,14 +12,31 @@ class InvoicesController extends Controller
     public function index()
     {
         $supplier = auth()->user();
-        $invoices = Invoices::with(['order', 'order.supplier'])
+        $invoices = Invoices::with(['order', 'order.supplier', 'payments'])
             ->whereHas('order', function($q) use ($supplier) {
                 $q->where('supplier_id', $supplier->id);
             })
             ->where('is_archived',false)
             ->orderBy('created_at', 'desc')
             ->paginate(20);
-        return view('invoices.show_all_invoices', compact('invoices', 'supplier'));
+
+        // حساب المبالغ لكل فاتورة
+        $invoices_with_calculations = [];
+        foreach($invoices as $invoice){
+            $invoice_paid = 0;
+            foreach($invoice->payments as $payment){
+                if($payment->status=='confirmed'){
+                    $invoice_paid += $payment->paid_amount;
+                }
+            }
+            // إضافة المبالغ المحسوبة كمصفوفة منفصلة
+            $invoices_with_calculations[$invoice->id] = [
+                'total_paid' => $invoice_paid,
+                'remaining_amount' => $invoice->total_amount - $invoice_paid
+            ];
+        }
+
+        return view('invoices.show_all_invoices', compact('invoices', 'supplier', 'invoices_with_calculations'));
     }
 
     public function show_all_invoice_with_filter(Request $request)
@@ -171,11 +188,11 @@ class InvoicesController extends Controller
         try {
             $invoice = \App\Models\invoices::with(['order.orderItems.medicine', 'order.supplier'])
                 ->findOrFail($id);
-            
+
             $pdf = PDF::loadView('invoices.pdf', compact('invoice'));
-            
+
             return $pdf->download('invoice-' . $invoice->invoice_number . '.pdf');
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'حدث خطأ أثناء تحميل الفاتورة',
@@ -212,7 +229,7 @@ class InvoicesController extends Controller
     public function show_paid_invoices()
     {
         $supplier = auth()->user();
-        $invoices = Invoices::with(['order','order.supplier'])
+        $invoices = Invoices::with(['order','order.supplier', 'payments'])
             ->whereHas('order',function($q) use ($supplier){
                 $q->where('supplier_id',$supplier->id);
             })
@@ -227,7 +244,7 @@ class InvoicesController extends Controller
     public function partially()
     {
         $supplier = auth()->user();
-        $invoices = Invoices::with(['order','order.supplier'])
+        $invoices = Invoices::with(['order','order.supplier', 'payments'])
             ->whereHas('order',function($q) use ($supplier){
                 $q->where('supplier_id',$supplier->id);
             })
@@ -235,21 +252,43 @@ class InvoicesController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        return view('invoices.show_partially_invoices',compact('invoices','supplier'));
+        $total_amount_for_partially = $invoices->sum('total_amount');
+        $total_paid = 0;
+        $invoices_with_calculations = [];
+
+        // حساب المبلغ المتبقي لكل فاتورة
+        foreach($invoices as $invoice){
+            $invoice_paid = 0;
+            foreach($invoice->payments as $payment){
+                if($payment->status=='confirmed'){
+                    $total_paid += $payment->paid_amount;
+                    $invoice_paid += $payment->paid_amount;
+                }
+            }
+            // إضافة المبالغ المحسوبة كمصفوفة منفصلة
+            $invoices_with_calculations[$invoice->id] = [
+                'total_paid' => $invoice_paid,
+                'remaining_amount' => $invoice->total_amount - $invoice_paid
+            ];
+        }
+
+        $remaining_amount_for_all_partially = $total_amount_for_partially - $total_paid;
+
+        return view('invoices.show_partially_invoices',compact('invoices','supplier', 'total_paid', 'remaining_amount_for_all_partially', 'invoices_with_calculations'));
     }
 
 
     public function add_to_archive(Request $request, $id)
     {
         try {
-            $invoice = Invoices::findOrFail($id);            
+            $invoice = Invoices::findOrFail($id);
             // أرشفة الفاتورة
             $invoice->is_archived = true;
             $invoice->save();
-            
+
             // إضافة رسالة نجاح
             return redirect()->back()->with('add_archive', 'تم أرشفة بنجاح');
-            
+
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'حدث خطأ أثناء أرشفة الفاتورة: ' . $e->getMessage());
         }
@@ -260,7 +299,7 @@ class InvoicesController extends Controller
     {
         $supplier = auth()->user();
         $selectedYear = $request->get('year', date('Y'));
-        
+
         // جلب الفواتير المؤرشفة مع العلاقات
         $invoices = Invoices::with(['order', 'order.supplier', 'order.orderItems.medicine'])
             ->whereHas('order', function($q) use ($supplier) {
@@ -301,7 +340,7 @@ class InvoicesController extends Controller
 
     public function show_partially_paid_invoices_api(Request $request)
     {
-        $query = Invoices::with(['order', 'order.supplier', 'order.orderItems.medicine'])
+        $query = Invoices::with(['order', 'order.supplier', 'order.orderItems.medicine', 'payments'])
             ->where('status', 'partially')
             ->where('is_archived',false);
 
@@ -317,10 +356,25 @@ class InvoicesController extends Controller
             $query->whereDate('invoice_date', '<=', $request->date_to);
         }
 
+        // حساب المجاميع
+        $total_amount_for_partially = $query->sum('total_amount');
+        $total_paid = 0;
+        $total_remaining = 0;
+        $invoices_with_calculations = [];
+
+
         $query->orderBy('created_at', 'desc');
         $invoices = $query->paginate(20);
 
-        $data = $invoices->map(function($invoice) {
+        $data = $invoices->map(function($invoice) use (&$total_paid, &$total_remaining) {
+            // حساب المبلغ المدفوع للفاتورة
+            $paid_amount = $invoice->payments->where('status', 'confirmed')->sum('paid_amount');
+            $remaining_amount = $invoice->total_amount - $paid_amount;
+
+            // إضافة للمجاميع
+            $total_paid += $paid_amount;
+            $total_remaining += $remaining_amount;
+
             return [
                 'id' => $invoice->id,
                 'invoice_number' => $invoice->invoice_number,
@@ -328,6 +382,8 @@ class InvoicesController extends Controller
                 'due_date' => $invoice->due_date,
                 'status' => $invoice->status,
                 'total_amount' => $invoice->total_amount,
+                'paid_amount' => $paid_amount,
+                'remaining_amount' => $remaining_amount,
                 'order_id' => $invoice->order ? $invoice->order->id : null,
                 'order_number' => $invoice->order ? $invoice->order->order_number : null,
                 'supplier_name' => $invoice->order && $invoice->order->supplier ? $invoice->order->supplier->contact_person_name : null,
@@ -350,6 +406,11 @@ class InvoicesController extends Controller
             'current_page' => $invoices->currentPage(),
             'last_page' => $invoices->lastPage(),
             'invoices' => $data,
+            'summary' => [
+                'total_invoices_amount' => $total_amount_for_partially,
+                'total_paid_amount' => $total_paid,
+                'total_remaining_amount' => $total_remaining,
+            ]
         ]);
     }
 

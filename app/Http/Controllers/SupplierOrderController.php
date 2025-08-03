@@ -384,5 +384,43 @@ class SupplierOrderController extends Controller
         return back()->with('update_expiry', 'تم تحديث تاريخ الصلاحية بنجاح');
     }
 
+    public function updateExpiryBulk(Request $request)
+    {
+        $request->validate([
+            'order_id' => 'required|exists:orders,id',
+            'expiry_dates' => 'required|array',
+            'expiry_dates.*' => 'required|date|after:today'
+        ]);
+
+        // dd($request->expiry_dates[1]);
+        $supplier = auth()->user();
+
+        try {
+            // التحقق من أن الطلبية تخص المورد الحالي
+            $order = Order::where('id', $request->order_id)
+                         ->where('supplier_id', $supplier->id)
+                         ->firstOrFail();
+
+            $updatedCount = 0;
+
+            foreach ($request->expiry_dates as $itemId => $expiryDate) {
+                $orderItem = $order->orderItems()->find($itemId);
+                if ($orderItem) {
+                    $orderItem->update(['expiry_date' => $expiryDate]);
+                    $updatedCount++;
+                }
+            }
+
+            if ($updatedCount > 0) {
+                return back()->with('update_expiry', "تم تحديث تواريخ الصلاحية لـ {$updatedCount} منتج بنجاح");
+            } else {
+                return back()->with('error', 'لم يتم العثور على أي منتجات لتحديثها');
+            }
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'حدث خطأ أثناء تحديث تواريخ الصلاحية: ' . $e->getMessage());
+        }
+    }
+
 
 }

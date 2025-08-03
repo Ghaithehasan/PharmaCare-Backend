@@ -6,7 +6,7 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <style>
     body { background: #f6f8fa; }
-    
+
     /* Notification Styles */
     .custom-notification {
         position: fixed;
@@ -274,9 +274,9 @@
         padding-bottom: 8px;
         font-size: 1.08em;
     }
-    .table th, .table td { 
-        vertical-align: middle; 
-        text-align: center; 
+    .table th, .table td {
+        vertical-align: middle;
+        text-align: center;
     }
     .table th {
         background: #f8f9fa;
@@ -337,14 +337,14 @@
         box-shadow: 0 4px 12px rgba(40,167,69,0.25) !important;
         transform: translateY(-2px);
     }
-    
+
     /* تأثير إضافي للزر عند التمرير */
     .actions a.btn-outline-info:hover {
         background: #28a745 !important;
         color: #fff !important;
         border-color: #28a745 !important;
     }
-    
+
     /* كلاس مخصص لزر العرض */
     .view-btn:hover {
         background: #28a745 !important;
@@ -353,7 +353,22 @@
         box-shadow: 0 4px 12px rgba(40,167,69,0.25) !important;
         transform: translateY(-2px);
     }
-    
+    .badge-success {
+        background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+        color: white;
+        font-weight: 600;
+    }
+    .badge-danger {
+        background: linear-gradient(90deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        font-weight: 600;
+    }
+    .badge-warning {
+        background: linear-gradient(90deg, #ffc107 0%, #ff9800 100%);
+        color: white;
+        font-weight: 600;
+    }
+
     @media (max-width: 600px) {
         .all-invoices-card {
             padding: 16px 6px 12px 6px;
@@ -445,7 +460,7 @@
                 }
             </script>
         @endif
-        
+
         @if(session('error'))
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                 <i class="fas fa-exclamation-circle ml-1"></i>
@@ -455,7 +470,7 @@
                 </button>
             </div>
         @endif
-        
+
         @if($invoices->count() > 0)
         <div class="paid-alert">
             <i class="fas fa-check-circle fa-lg"></i>
@@ -519,6 +534,42 @@
                                 </button>
                             </form>
                         </div>
+
+                        @if($invoice->payments && $invoice->payments->count() > 0)
+                            <div class="mt-3">
+                                <h6 class="text-info"><i class="fas fa-history ml-1"></i> جميع المدفوعات</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered">
+                                        <thead class="table-info">
+                                            <tr>
+                                                <th>التاريخ</th>
+                                                <th>المبلغ</th>
+                                                <th>طريقة الدفع</th>
+                                                <th>الحالة</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($invoice->payments as $payment)
+                                                <tr>
+                                                    <td>{{ \Carbon\Carbon::parse($payment->payment_date)->format('Y/m/d') }}</td>
+                                                    <td class="font-weight-bold">{{ number_format($payment->paid_amount, 2) }} ل.س</td>
+                                                    <td>{{ $payment->payment_method }}</td>
+                                                    <td>
+                                                        @if($payment->status == 'confirmed')
+                                                            <span class="badge badge-success">مؤكد</span>
+                                                        @elseif($payment->status == 'rejected')
+                                                            <span class="badge badge-danger">مرفوض</span>
+                                                        @elseif($payment->status == 'pending')
+                                                            <span class="badge badge-warning">معلق</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 </div>
             @endforeach

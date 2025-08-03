@@ -74,11 +74,22 @@ Route::apiResource('brands' , BrandController::class)->middleware([ApiLocalizati
 
 Route::apiResource('orders',OrderController::class)->middleware([ApiLocalization::class]);
 
+Route::get('show-pending-orders',[OrderController::class,'show_pending_orders'])->middleware([ApiLocalization::class]);
+
+Route::get('show-confirmed-orders',[OrderController::class,'show_confirmed_orders'])->middleware([ApiLocalization::class]);
+
+Route::get('show-completed-orders',[OrderController::class,'show_completed_orders'])->middleware([ApiLocalization::class]);
+
+Route::get('show-cancelled-orders',[OrderController::class,'show_cancelled_orders'])->middleware([ApiLocalization::class]);
+
+
 Route::apiResource('payments',PaymentController::class)->middleware([ApiLocalization::class]);
 
 // Route::get('medecines-with-low-quantity')
 
 Route::post('add-category', [MedicineController::class, 'storeCategory'])->middleware([ApiLocalization::class]);
+
+Route::delete('delete-category/{id}', [MedicineController::class, 'deleteCategory'])->middleware([ApiLocalization::class]);
 
 Route::get('generaite-barcode', [MedicineController::class, 'generateNumericBarcode'])->middleware([ApiLocalization::class]);
 

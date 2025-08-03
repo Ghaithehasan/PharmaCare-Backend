@@ -19,7 +19,7 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: 
+        background:
             radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.05) 0%, transparent 50%),
             radial-gradient(circle at 100% 0%, rgba(236, 72, 153, 0.05) 0%, transparent 50%),
             radial-gradient(circle at 100% 100%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
@@ -664,7 +664,7 @@
 
     @if($notifications->count() > 0)
         @foreach($notifications as $notification)
-            <div class="notification-item {{ $notification->is_read ? 'marked-read' : 'unread' }}" 
+            <div class="notification-item {{ $notification->is_read ? 'marked-read' : 'unread' }}"
                  id="notification-{{ $notification->id }}"
                  data-type="{{ $notification->notification_type }}">
                 <div class="notification-icon">
@@ -693,8 +693,8 @@
                     </div>
                 </div>
                 @if(!$notification->is_read)
-                    <form action="{{ route('supplier.notifications.mark-as-read', $notification->id) }}" 
-                          method="POST" 
+                    <form action="{{ route('supplier.notifications.mark-as-read', $notification->id) }}"
+                          method="POST"
                           style="display: inline;"
                           onsubmit="this.querySelector('button').classList.add('loading')">
                         @csrf

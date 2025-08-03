@@ -7,6 +7,7 @@ use App\Models\Medicine;
 use App\Models\Category;
 use App\Models\OrderItem;
 use App\Models\MedicineAttachment;
+use App\Models\MedicineBatch;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -563,16 +564,119 @@ class MedicineController extends Controller
         ]);
     }
 
+    public function deleteCategory(Request $request, $id)
+    {
+        try {
+            $category = Category::findOrFail($id);
+
+            // التحقق من وجود أدوية في القسم
+            $medicinesCount = Medicine::where('category_id', $id)->count();
+
+            if ($medicinesCount > 0) {
+                // إذا كان هناك أدوية في القسم، نحتاج لنقلها أولاً
+                if (!$request->has('new_category_id')) {
+                    // جلب جميع الأقسام الأخرى المتاحة
+                    $availableCategories = Category::where('id', '!=', $id)->get();
+
+                    return response()->json([
+                        'status' => false,
+                        'status_code' => 400,
+                        'message' => 'لا يمكن حذف القسم لوجود أدوية فيه',
+                        'requires_transfer' => true,
+                        'medicines_count' => $medicinesCount,
+                        'category_name' => $category->name,
+                        'available_categories' => $availableCategories->map(function($cat) {
+                            return [
+                                'id' => $cat->id,
+                                'name' => $cat->name
+                            ];
+                        }),
+                        'message_details' => "يوجد {$medicinesCount} دواء في قسم '{$category->name}'. يرجى اختيار قسم آخر لنقل الأدوية إليه قبل حذف القسم."
+                    ], 400);
+                }
+
+                // نقل الأدوية إلى القسم الجديد
+                $newCategoryId = $request->new_category_id;
+                $newCategory = Category::find($newCategoryId);
+
+                if (!$newCategory) {
+                    return response()->json([
+                        'status' => false,
+                        'status_code' => 404,
+                        'message' => 'القسم المحدد غير موجود',
+                        'errors' => [
+                            'new_category_id' => ['القسم المحدد غير موجود']
+                        ]
+                    ], 404);
+                }
+
+                // نقل جميع الأدوية إلى القسم الجديد
+                $transferredMedicines = Medicine::where('category_id', $id)->update([
+                    'category_id' => $newCategoryId
+                ]);
+
+                // حذف القسم
+                $category->delete();
+
+                return response()->json([
+                    'status' => true,
+                    'status_code' => 200,
+                    'message' => 'تم حذف القسم بنجاح',
+                    'data' => [
+                        'deleted_category' => [
+                            'id' => $id,
+                            'name' => $category->name
+                        ],
+                        'transfer_details' => [
+                            'medicines_transferred' => $transferredMedicines,
+                            'new_category' => [
+                                'id' => $newCategory->id,
+                                'name' => $newCategory->name
+                            ]
+                        ]
+                    ]
+                ]);
+
+            } else {
+                // لا توجد أدوية في القسم، يمكن حذفه مباشرة
+                $category->delete();
+
+                return response()->json([
+                    'status' => true,
+                    'status_code' => 200,
+                    'message' => 'تم حذف القسم بنجاح',
+                    'data' => [
+                        'deleted_category' => [
+                            'id' => $id,
+                            'name' => $category->name
+                        ],
+                        'transfer_details' => null
+                    ]
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'status_code' => 500,
+                'message' => 'حدث خطأ أثناء حذف القسم',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
 
 
     public function generate_barcode($medicine_id)
     {
         $quantity=request()->quantity;
+        $batch_id=request()->batch_id;
         // dd($quantity);
         $medicine = Medicine::findOrFail($medicine_id);
+        $batch = MedicineBatch::where('medicine_id',$medicine_id)->where('id',$batch_id)->where('is_active',1)->where('quantity','>',0)->first();
         $barcode = base64_encode((new BarcodeGeneratorPNG())->getBarcode($medicine->bar_code, BarcodeGeneratorPNG::TYPE_CODE_128));
 
-        $pdf = Pdf::loadView('barcode', compact('medicine', 'barcode', 'quantity'))
+        $pdf = Pdf::loadView('barcode', compact('medicine', 'barcode', 'quantity','batch'))
                   ->setPaper('A4', 'portrait')
                   ->setOptions(['isHtml5ParserEnabled' => true, 'isPhpEnabled' => true]);
 

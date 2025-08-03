@@ -32,7 +32,7 @@ class OrderEmailListener
         $order = $event->order;
         $medicines = $event->medicines;
         $totalMedicines = collect($medicines)->sum('quantity');
-        
+
         // حساب إجمالي قيمة الطلب
         $totalAmount = collect($medicines)->sum('total_price');
 
@@ -55,7 +55,7 @@ class OrderEmailListener
 
         $notification = SupplierNotification::create([
             'supplier_id' => $order->supplier->id,
-            'notification_type' => 'new_order',
+            'notification_type' => 'order',
             'message' => $notificationMessage,
             'data' => json_encode($notificationData, JSON_UNESCAPED_UNICODE),
             'is_read' => false,

@@ -106,9 +106,9 @@
         padding-bottom: 8px;
         font-size: 1.08em;
     }
-    .table th, .table td { 
-        vertical-align: middle; 
-        text-align: center; 
+    .table th, .table td {
+        vertical-align: middle;
+        text-align: center;
     }
     .table th {
         background: #f8f9fa;
@@ -161,7 +161,7 @@
         border-color: #6c757d;
         box-shadow: 0 2px 8px rgba(108,117,125,0.13);
     }
-    
+
     /* تأكيد إضافي لزر العرض */
     .actions .btn-outline-info:hover {
         background: #28a745 !important;
@@ -170,7 +170,52 @@
         box-shadow: 0 4px 12px rgba(40,167,69,0.25) !important;
         transform: translateY(-2px);
     }
-    
+    .paid-amount-badge {
+        background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-weight: 700;
+        box-shadow: 0 2px 4px rgba(40,167,69,0.3);
+        display: inline-block;
+        margin-right: 5px;
+        transition: all 0.2s ease;
+    }
+    .paid-amount-badge:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 6px rgba(40,167,69,0.4);
+    }
+    .remaining-amount-badge {
+        background: linear-gradient(90deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-weight: 700;
+        box-shadow: 0 2px 4px rgba(220,53,69,0.3);
+        display: inline-block;
+        margin-right: 5px;
+        transition: all 0.2s ease;
+    }
+    .remaining-amount-badge:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 6px rgba(220,53,69,0.4);
+    }
+    .badge-success {
+        background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+        color: white;
+        font-weight: 600;
+    }
+    .badge-danger {
+        background: linear-gradient(90deg, #dc3545 0%, #c82333 100%);
+        color: white;
+        font-weight: 600;
+    }
+    .badge-warning {
+        background: linear-gradient(90deg, #ffc107 0%, #ff9800 100%);
+        color: white;
+        font-weight: 600;
+    }
+
     @media (max-width: 600px) {
         .all-invoices-card {
             padding: 16px 6px 12px 6px;
@@ -205,7 +250,7 @@
                 </button>
             </div>
         @endif
-        
+
         @if(session('error'))
             <div class="alert alert-danger alert-dismissible fade show" role="alert" style="margin-bottom: 20px;">
                 <i class="fas fa-exclamation-circle ml-1"></i>
@@ -215,7 +260,7 @@
                 </button>
             </div>
         @endif
-        
+
         @if($invoices->count() == 0)
             <div class="text-center py-5">
                 <i class="fas fa-file-invoice" style="font-size: 4em; color: #667eea;"></i>
@@ -242,6 +287,10 @@
                         <div><i class="fas fa-calendar-alt ml-1"></i> <strong>تاريخ الفاتورة:</strong> {{ \Carbon\Carbon::parse($invoice->invoice_date)->format('Y/m/d') }}</div>
                         <div><i class="fas fa-calendar-check ml-1"></i> <strong>تاريخ الاستحقاق:</strong> {{ \Carbon\Carbon::parse($invoice->due_date)->format('Y/m/d') }}</div>
                         <div><i class="fas fa-money-bill ml-1"></i> <strong>الإجمالي:</strong> {{ number_format($invoice->total_amount, 2) }} ليرة سوري</div>
+                        @if($invoice->status != 'paid')
+                            <div><i class="fas fa-check-circle ml-1"></i> <strong>المدفوع:</strong> <span class="paid-amount-badge">{{ number_format($invoices_with_calculations[$invoice->id]['total_paid'], 2) }} ليرة سوري</span></div>
+                            <div><i class="fas fa-exclamation-triangle ml-1"></i> <strong>المبلغ المتبقي:</strong> <span class="remaining-amount-badge">{{ number_format($invoices_with_calculations[$invoice->id]['remaining_amount'], 2) }} ليرة سوري</span></div>
+                        @endif
                     </div>
                     <div class="invoice-details">
                         <h6><i class="fas fa-list-ul ml-1"></i> ملخص الطلبية</h6>
@@ -281,6 +330,42 @@
                                 </form>
                             @endif
                         </div>
+
+                        @if($invoice->payments && $invoice->payments->count() > 0)
+                            <div class="mt-3">
+                                <h6 class="text-info"><i class="fas fa-history ml-1"></i> جميع المدفوعات</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered">
+                                        <thead class="table-info">
+                                            <tr>
+                                                <th>التاريخ</th>
+                                                <th>المبلغ</th>
+                                                <th>طريقة الدفع</th>
+                                                <th>الحالة</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($invoice->payments as $payment)
+                                                <tr>
+                                                    <td>{{ \Carbon\Carbon::parse($payment->payment_date)->format('Y/m/d') }}</td>
+                                                    <td class="font-weight-bold">{{ number_format($payment->paid_amount, 2) }} ل.س</td>
+                                                    <td>{{ $payment->payment_method }}</td>
+                                                    <td>
+                                                        @if($payment->status == 'confirmed')
+                                                            <span class="badge badge-success">مؤكد</span>
+                                                        @elseif($payment->status == 'rejected')
+                                                            <span class="badge badge-danger">مرفوض</span>
+                                                        @elseif($payment->status == 'pending')
+                                                            <span class="badge badge-warning">معلق</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 </div>
             @endforeach

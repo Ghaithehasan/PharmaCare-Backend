@@ -35,6 +35,20 @@
             font-size: 16px;
             color: #333;
         }
+        .expiry-date {
+            background-color: #ff6b6b;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+        .batch-info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
         .barcode img {
             width: 75%;
             margin-top: 10px;
@@ -48,7 +62,12 @@
             <div class="label">
                 <h2>{{ $medicine->medicine_name }}</h2>
                 <p>Price: {{ $medicine->people_price }} $</p>
-                <p>Expiration Date: {{ $medicine->expiry_date }}</p>
+                @if(isset($batch) && $batch)
+                    <div class="expiry-date">Exp: {{ \Carbon\Carbon::parse($batch->expiry_date)->format('d/m/Y') }}</div>
+                    <p class="batch-info">Batch: {{ $batch->batch_number }}</p>
+                @else
+                    <div class="expiry-date">Exp: {{ $medicine->expiry_date ? \Carbon\Carbon::parse($medicine->expiry_date)->format('d/m/Y') : 'N/A' }}</div>
+                @endif
                 <div class="barcode">
                     <img src="data:image/png;base64,{{ $barcode }}" />
                 </div>
