@@ -78,18 +78,24 @@ class InventoryCountController extends Controller
 
         $inventoryCount = InventoryCount::findOrFail($id);
 
-        if ($request->status === InventoryCount::STATUS_COMPLETED) {
-            if ($inventoryCount->isCompleted()) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'عملية الجرد مكتملة بالفعل'
-                ], 400);
-            }
+        // التحقق من أن الجرد لم يكتمل بعد
+        if ($inventoryCount->isCompleted()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'لا يمكن تغيير حالة عملية الجرد المكتملة'
+            ], 400);
+        }
 
+        if ($request->status === InventoryCount::STATUS_COMPLETED) {
             DB::beginTransaction();
             try {
                 foreach ($inventoryCount->items as $item) {
                     $medicine = Medicine::find($item->medicine_id);
+
+                    if (!$medicine) {
+                        throw new \Exception("الدواء غير موجود: ID {$item->medicine_id}");
+                    }
+
                     $medicine->quantity = $item->actual_quantity;
                     $medicine->save();
                 }
@@ -113,13 +119,6 @@ class InventoryCountController extends Controller
                     'error' => $e->getMessage()
                 ], 500);
             }
-        }
-
-        if ($inventoryCount->isCompleted()) {
-            return response()->json([
-                'status' => false,
-                'message' => 'لا يمكن تغيير حالة عملية الجرد المكتملة'
-            ], 400);
         }
 
         $inventoryCount->status = $request->status;

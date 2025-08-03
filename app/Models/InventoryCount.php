@@ -38,7 +38,21 @@ class InventoryCount extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /**
+     * التحقق من اكتمال عملية الجرد
+     */
+    public function isCompleted(): bool
+    {
+        return $this->status === self::STATUS_COMPLETED;
+    }
 
+    /**
+     * التحقق من أن عملية الجرد قيد التنفيذ
+     */
+    public function isInProgress(): bool
+    {
+        return $this->status === self::STATUS_IN_PROGRESS;
+    }
 
     /**
      * الحصول على إجمالي الفروقات
