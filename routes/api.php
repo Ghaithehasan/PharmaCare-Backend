@@ -47,6 +47,9 @@ Route::apiResource('roles' , RoleController::class)->middleware([ApiLocalization
 
 Route::apiResource('suppliers' , SupplierController::class)->middleware([ApiLocalization::class]);
 
+Route::put('dis-active-supplier/{id}' , [SupplierController::class , 'dis_active_supplier'])->middleware([ApiLocalization::class]);
+
+Route::get('suppliers-purchases/{id}' , [SupplierController::class , 'showSupplierPurchases'])->middleware([ApiLocalization::class]);
 
 Route::post('add-alternative-medicines/{medicineId}' , [MedicineController::class, 'storeAlternative'])->middleware([ApiLocalization::class]);
 

@@ -17,25 +17,25 @@ class SupplierController extends Controller
     public function show_supplier_dashboard()
     {
         $supplier = auth()->user();
-        
+
         // Calculate order statistics
         $totalOrders = $supplier->orders()->count();
         $pendingOrders = $supplier->orders()->where('status', 'pending')->count();
         $confirmedOrders = $supplier->orders()->where('status', 'confirmed')->count();
         $completedOrders = $supplier->orders()->where('status', 'completed')->count();
         $cancelledOrders = $supplier->orders()->where('status', 'cancelled')->count();
-        
+
         // Calculate percentages
         $pendingPercentage = $totalOrders > 0 ? round(($pendingOrders / $totalOrders) * 100) : 0;
         $confirmedPercentage = $totalOrders > 0 ? round(($confirmedOrders / $totalOrders) * 100) : 0;
         $completedPercentage = $totalOrders > 0 ? round(($completedOrders / $totalOrders) * 100) : 0;
         $cancelledPercentage = $totalOrders > 0 ? round(($cancelledOrders / $totalOrders) * 100) : 0;
-        
+
         return view('suppliers.dashboard', compact(
             'supplier',
             'totalOrders',
             'pendingOrders',
-            'confirmedOrders', 
+            'confirmedOrders',
             'completedOrders',
             'cancelledOrders',
             'pendingPercentage',
@@ -62,7 +62,7 @@ class SupplierController extends Controller
     {
         try {
             $currentSupplier = auth()->user();
-            
+
             // التحقق من أن المورد يحاول الوصول لبياناته الخاصة فقط
             if ($currentSupplier->id != $id) {
                 return response()->json([
@@ -71,7 +71,7 @@ class SupplierController extends Controller
                     'message' => 'غير مسموح لك بالوصول لبيانات مورد آخر',
                 ], 403);
             }
-            
+
             $supplier = Supplier::with([
                 'orders' => function($query) {
                     $query->with('medicines')
@@ -100,7 +100,7 @@ class SupplierController extends Controller
                     'completed' => $supplier->orders()->where('status', 'completed')->count(),
                     'cancelled' => $supplier->orders()->where('status', 'cancelled')->count(),
                 ],
-                
+
                 'payments' => [
                     'total_paid' => $supplier->payments()
                         ->where('payment_status', 'completed')
@@ -189,7 +189,7 @@ class SupplierController extends Controller
         }
     }
 
-    
+
     public function store(Request $request)
     {
         $validatedData = $request->validate([
@@ -278,6 +278,143 @@ class SupplierController extends Controller
         return redirect()->back()->with('success', 'تم تحديث بيانات المورد بنجاح!');
     }
 
+    public function dis_active_supplier($id)
+    {
+        try {
+            $supplier = Supplier::findOrFail($id);
+
+            // التحقق من أن المورد نشط حالياً
+            if (!$supplier->is_active) {
+                return response()->json([
+                    'status' => false,
+                    'status_code' => 400,
+                    'message' => 'المورد معطل بالفعل'
+                ], 400);
+            }
+
+            // تعطيل المورد
+            $supplier->is_active = false;
+            $supplier->save();
+
+            return response()->json([
+                'status' => true,
+                'status_code' => 200,
+                'message' => 'تم تعطيل المورد بنجاح',
+                'data' => [
+                    'id' => $supplier->id,
+                    'company_name' => $supplier->company_name,
+                    'is_active' => $supplier->is_active
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'status_code' => 500,
+                'message' => 'حدث خطأ أثناء تعطيل المورد',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+    public function index()
+    {
+        $suppliers = Supplier::with(['orders.invoice.payments'])->select([
+            'id',
+            'company_name',
+            'contact_person_name',
+            'phone',
+            'email',
+            'is_active'
+        ])->get();
+
+        // حساب المشتريات غير المدفوعة لكل مورد
+        $suppliersWithUnpaidAmounts = $suppliers->map(function($supplier) {
+            $totalUnpaidAmount = 0;
+
+            foreach($supplier->orders as $order) {
+                if($order->invoice) {
+                    $invoice = $order->invoice;
+                    $totalPaid = $invoice->payments->where('status', 'confirmed')->sum('paid_amount');
+                    $unpaidAmount = $invoice->total_amount - $totalPaid;
+
+                    if($unpaidAmount > 0) {
+                        $totalUnpaidAmount += $unpaidAmount;
+                    }
+                }
+            }
+
+            return [
+                'id' => $supplier->id,
+                'company_name' => $supplier->company_name,
+                'contact_person_name' => $supplier->contact_person_name,
+                'phone' => $supplier->phone,
+                'email' => $supplier->email,
+                'is_active' => $supplier->is_active,
+                'unpaid_purchases' => $totalUnpaidAmount
+            ];
+        });
+
+        return response()->json([
+            'status' => true,
+            'status_code' => 200,
+            'message' => 'تم جلب الموردين بنجاح',
+            'data' => $suppliersWithUnpaidAmounts,
+            'count' => $suppliers->count()
+        ]);
+    }
+
+
+    public function show($id)
+    {
+        $supplier = Supplier::with(['orders.orderItems'])->find($id);
+
+        if (!$supplier) {
+            return response()->json([
+                'status' => false,
+                'status_code' => 404,
+                'message' => 'المورد غير موجود',
+            ], 404);
+        }
+
+        // حساب الإحصائيات بكفاءة
+        $orders = $supplier->orders;
+        $totalOrders = $orders->count();
+        $totalPurchases = $orders->sum(function($order) {
+            return $order->orderItems->sum('total_price');
+        });
+
+        // إحصائيات الطلبات حسب الحالة
+        $orderStats = [
+            'pending' => $orders->where('status', 'pending')->count(),
+            'confirmed' => $orders->where('status', 'confirmed')->count(),
+            'completed' => $orders->where('status', 'completed')->count(),
+            'cancelled' => $orders->where('status', 'cancelled')->count(),
+        ];
+
+        return response()->json([
+            'status' => true,
+            'status_code' => 200,
+            'message' => 'تم جلب بيانات المورد بنجاح',
+            'data' => [
+                'supplier' => [
+                    'id' => $supplier->id,
+                    'contact_person_name' => $supplier->contact_person_name,
+                    'company_name' => $supplier->company_name,
+                    'phone' => $supplier->phone,
+                    'email' => $supplier->email,
+                    'address' => $supplier->address,
+                ],
+                'statistics' => [
+                    'total_orders' => $totalOrders,
+                    'total_purchases' => $totalPurchases,
+                    'order_status_breakdown' => $orderStats,
+                    'average_order_value' => $totalOrders > 0 ? round($totalPurchases / $totalOrders, 2) : 0,
+                ]
+            ]
+        ]);
+    }
 
 
     public function destroy(Supplier $supplier)
@@ -326,7 +463,7 @@ class SupplierController extends Controller
     }
 
     // Add method to mark notification as read
-    
+
 public function login(Request $request)
 {
     $request->validate([
@@ -348,4 +485,91 @@ public function logout()
     Auth::logout(); // تسجيل الخروج بشكل آمن
     return redirect()->route('home')->with('message', 'تم تسجيل الخروج بنجاح!');
 }
+
+    public function showSupplierPurchases($id)
+    {
+        try {
+            $supplier = Supplier::with([
+                'orders.invoice.payments',
+                'orders.orderItems.medicine'
+            ])->findOrFail($id);
+
+            // تحضير بيانات المشتريات
+            $purchases = $supplier->orders->where('status','completed')->map(function($order) {
+                $invoice = $order->invoice;
+                $totalPaid = 0;
+                $paymentStatus = 'غير مدفوع';
+
+                if ($invoice) {
+                    $totalPaid = $invoice->payments->where('status', 'confirmed')->sum('paid_amount');
+                    $unpaidAmount = $invoice->total_amount - $totalPaid;
+
+                    if ($unpaidAmount <= 0) {
+                        $paymentStatus = 'مدفوع بالكامل';
+                    } elseif ($totalPaid > 0) {
+                        $paymentStatus = 'مدفوع جزئياً';
+                    }
+                }
+
+                return [
+
+                    'purchase' => $invoice ? [
+
+                        'purchase_due_date' => $invoice->due_date,
+                        'total_amount' => $invoice->total_amount,
+                        'total_paid' => $totalPaid,
+                        'unpaid_amount' => $invoice->total_amount - $totalPaid,
+                        'payment_status' => $paymentStatus,
+                    ] : null,
+                    'items' => $order->orderItems->map(function($item) {
+                        return [
+                            'medicine_name' => $item->medicine->medicine_name,
+                            'quantity' => $item->quantity,
+
+                        ];
+                    }),
+                    'items_count' => $order->orderItems->count(),
+                ];
+            });
+
+            // حساب الإحصائيات
+            $totalOrders = $purchases->count();
+            $totalInvoiced = $purchases->sum(function($purchase) {
+                return $purchase['purchase']['total_amount'] ?? 0;
+            });
+            $totalPaid = $purchases->sum(function($purchase) {
+                return $purchase['purchase']['total_paid'] ?? 0;
+            });
+            $totalUnpaid = $totalInvoiced - $totalPaid;
+
+            return response()->json([
+                'status' => true,
+                'status_code' => 200,
+                'message' => 'تم جلب مشتريات المورد بنجاح',
+                'data' => [
+                    'supplier' => [
+                        'id' => $supplier->id,
+                        'company_name' => $supplier->company_name,
+                        'contact_person_name' => $supplier->contact_person_name,
+                    ],
+                    'purchases' => $purchases,
+                    'statistics' => [
+                        'total_orders' => $totalOrders,
+                        'total_purchases' => $totalInvoiced,
+                        'total_paid' => $totalPaid,
+                        'total_unpaid' => $totalUnpaid,
+                        'payment_percentage' => $totalInvoiced > 0 ? round(($totalPaid / $totalInvoiced) * 100, 2) : 0,
+                    ]
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'status_code' => 500,
+                'message' => 'حدث خطأ أثناء جلب مشتريات المورد',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
 }
