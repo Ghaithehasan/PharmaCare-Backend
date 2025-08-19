@@ -122,15 +122,18 @@ Route::get('show-invoice-details/{id}', [InvoicesController::class, 'show_invoic
 Route::prefix('reports')->group(function () {
     Route::get('/comprehensive-inventory', [ReportController::class, 'comprehensiveInventoryReport'])->middleware([ApiLocalization::class]);
     Route::get('/Medicines-Expiry-date',[ReportController::class, 'ExpiryReports'])->middleware([ApiLocalization::class]);
-    Route::get('/discrepancy', [ReportController::class, 'discrepancyReport'])->middleware([ApiLocalization::class]);
-    Route::get('/missing-leakage', [ReportController::class, 'missingAndLeakageReport'])->middleware([ApiLocalization::class]);
-    Route::get('/time-performance', [ReportController::class, 'timePerformanceReport'])->middleware([ApiLocalization::class]);
-    Route::get('/category-analysis', [ReportController::class, 'categoryAnalysisReport'])->middleware([ApiLocalization::class]);
-    Route::get('/predictive-analysis', [ReportController::class, 'predictiveAnalysisReport'])->middleware([ApiLocalization::class]);
+    Route::get('/inventory-snapshot', [ReportController::class, 'inventorySnapshot'])->middleware([ApiLocalization::class]);
+    // Route::get('/discrepancy', [ReportController::class, 'discrepancyReport'])->middleware([ApiLocalization::class]);
+    // Route::get('/missing-leakage', [ReportController::class, 'missingAndLeakageReport'])->middleware([ApiLocalization::class]);
+    // Route::get('/time-performance', [ReportController::class, 'timePerformanceReport'])->middleware([ApiLocalization::class]);
+    // Route::get('/category-analysis', [ReportController::class, 'categoryAnalysisReport'])->middleware([ApiLocalization::class]);
+    // Route::get('/predictive-analysis', [ReportController::class, 'predictiveAnalysisReport'])->middleware([ApiLocalization::class]);
     Route::get('/talif-reports',[ReportController::class, 'talif_report'])->middleware([ApiLocalization::class]);
-    Route::post('/generate-pdf', [ReportController::class, 'generatePDFReport'])->middleware([ApiLocalization::class]);
+    // Route::post('/generate-pdf', [ReportController::class, 'generatePDFReport'])->middleware([ApiLocalization::class]);
 
 });
+
+
 
 // دفعات الأدوية
 Route::get('medicine-batches', [\App\Http\Controllers\MedicineBatchController::class, 'index'])->middleware([ApiLocalization::class]);

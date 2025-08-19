@@ -8,6 +8,7 @@ use App\Models\InventoryCount;
 use App\Models\DamagedMedicine;
 use App\Models\InventoryCountItem;
 use App\Models\OrderItem;
+use App\Models\MedicineBatch;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -55,6 +56,209 @@ class ReportController extends Controller
         ]);
     }
 
+// =======================================================================================
+
+// =======================================================================================
+
+    /**
+     * تقرير لحظي مبسّط للمخزون (KPIs + تفاصيل مختصرة)
+     */
+    public function inventorySnapshot(Request $request)
+    {
+        $request->validate([
+            'category_id' => 'nullable|exists:categories,id',
+            'search' => 'nullable|string',
+            'days' => 'nullable|numeric|min:1',
+            'limit' => 'nullable|integer|min:1|max:200'
+        ]);
+
+        // dd();
+
+        $days = (int) $request->input('days', 60);
+        $limit = (int) $request->input('limit', 20);
+
+        // قاعدة الاستعلام الرئيسية للأدوية
+        $medicineBaseQuery = Medicine::with(['category'])
+            ->when($request->category_id, function($q, $categoryId) {
+                $q->where('category_id', $categoryId);
+            })
+            ->when($request->search, function($q, $search) {
+                $q->where(function($qq) use ($search) {
+                    $qq->where('medicine_name', 'like', "%{$search}%")
+                       ->orWhere('arabic_name', 'like', "%{$search}%")
+                       ->orWhere('sentific_name', 'like', "%{$search}%")
+                       ->orWhere('bar_code', 'like', "%{$search}%");
+                });
+            });
+
+        $medicines = (clone $medicineBaseQuery)->get();
+
+        // المؤشرات العامة
+        $total_medicines = $medicines->count();
+        $total_quantity = (int) $medicines->sum('quantity');
+        $stock_value_cost = $medicines->sum(function($m) {
+            return ((float) ($m->quantity ?? 0)) * ((float) ($m->supplier_price ?? 0));
+        });
+        $potential_revenue = $medicines->sum(function($m) {
+            return ((float) ($m->quantity ?? 0)) * ((float) ($m->people_price ?? 0));
+        });
+
+        // منخفض المخزون
+        $lowStockBaseQuery = (clone $medicineBaseQuery)
+            ->whereColumn('quantity', '<=', 'alert_quantity')
+            ->where('alert_quantity', '>', 0);
+
+        $totalLowStockCount = (clone $lowStockBaseQuery)->count();
+
+        $lowStock = (clone $lowStockBaseQuery)
+            ->orderByRaw('(quantity - alert_quantity) asc')
+            ->limit($limit)
+            ->get()
+            ->map(function($m) {
+                return [
+                    'medicine_id' => $m->id,
+                    'medicine_name' => $m->medicine_name,
+                    'category' => $m->category->name ?? null,
+                    'quantity' => (int) $m->quantity,
+                    'alert_quantity' => (int) $m->alert_quantity,
+                    'supplier_price' => (float) ($m->supplier_price ?? 0),
+                ];
+            });
+
+        // منقطع المخزون
+        $out_of_stock_count = (clone $medicineBaseQuery)
+            ->where('quantity', '=', 0)
+            ->count();
+
+        // أعلى أدوية من حيث قيمة المخزون
+        $topValueItems = (clone $medicineBaseQuery)
+            ->orderByRaw('(quantity * COALESCE(supplier_price, 0)) desc')
+            ->limit($limit)
+            ->get()
+            ->map(function($m) {
+                $stockCost = ((float) ($m->quantity ?? 0)) * ((float) ($m->supplier_price ?? 0));
+                $stockRetail = ((float) ($m->quantity ?? 0)) * ((float) ($m->people_price ?? 0));
+                return [
+                    'medicine_id' => $m->id,
+                    'medicine_name' => $m->medicine_name,
+                    'category' => $m->category->name ?? null,
+                    'quantity' => (int) $m->quantity,
+                    'stock_cost' => $stockCost,
+                    'stock_retail' => $stockRetail,
+                ];
+            });
+
+        // قريب الانتهاء (حسب الدفعات)
+        $expiringBatchQuery = MedicineBatch::with(['medicine.category'])
+            ->where('quantity', '>', 0)
+            ->whereDate('expiry_date', '<', now()->addDays($days))
+            ->when($request->category_id, function($q, $categoryId) {
+                $q->whereHas('medicine', function($mq) use ($categoryId) {
+                    $mq->where('category_id', $categoryId);
+                });
+            })
+            ->when($request->search, function($q, $search) {
+                $q->whereHas('medicine', function($mq) use ($search) {
+                    $mq->where(function($qq) use ($search) {
+                        $qq->where('medicine_name', 'like', "%{$search}%")
+                           ->orWhere('arabic_name', 'like', "%{$search}%")
+                           ->orWhere('sentific_name', 'like', "%{$search}%")
+                           ->orWhere('bar_code', 'like', "%{$search}%");
+                    });
+                });
+            });
+
+        $expiringBatches = $expiringBatchQuery->orderBy('expiry_date')->get();
+        $totalExpiringBatchesCount = $expiringBatches->count();
+        $expiringTotalCost = $expiringBatches->sum(function($b) {
+            return ((float) ($b->quantity ?? 0)) * ((float) ($b->unit_price ?? 0));
+        });
+
+        $expiringGrouped = $expiringBatches->groupBy('medicine_id')->map(function($items) {
+            $first = $items->first();
+            $totalQty = (int) $items->sum('quantity');
+            $totalCost = $items->sum(function($b) {
+                return ((float) ($b->quantity ?? 0)) * ((float) ($b->unit_price ?? 0));
+            });
+            $batches = $items->map(function($b) {
+                return [
+                    'batch_number' => $b->batch_number,
+                    'expiry_date' => optional($b->expiry_date)?->format('Y-m-d'),
+                    'quantity' => (int) ($b->quantity ?? 0),
+                    'unit_price' => (float) ($b->unit_price ?? 0),
+                    'value_cost' => ((float) ($b->quantity ?? 0)) * ((float) ($b->unit_price ?? 0)),
+                ];
+            })->values();
+
+            return [
+                'medicine_id' => $first->medicine_id,
+                'medicine_name' => $first->medicine->medicine_name ?? null,
+                'category' => optional($first->medicine->category)->name,
+                'total_batch_quantity' => $totalQty,
+                'earliest_expiry' => optional($items->min('expiry_date'))?->format('Y-m-d'),
+                'total_cost_value' => $totalCost,
+                'batches' => $batches,
+            ];
+        })->values()->sortBy('earliest_expiry')->values()->take($limit);
+
+        // تجميع حسب التصنيفات
+        $byCategory = $medicines->groupBy(function($m) {
+            return $m->category->name ?? 'غير مصنف';
+        })->map(function($items, $category) {
+            $quantity = (int) $items->sum('quantity');
+
+            $cost = $items->sum(function($m) {
+                return ((float) ($m->quantity ?? 0)) * ((float) ($m->supplier_price ?? 0));
+            });
+            $retail = $items->sum(function($m) {
+                return ((float) ($m->quantity ?? 0)) * ((float) ($m->people_price ?? 0));
+            });
+            return [
+                'category' => $category,
+
+                'total_quantity' => $quantity,
+                'stock_cost' => $cost,
+                'stock_retail' => $retail,
+            ];
+        })->values()->sortByDesc('stock_cost')->values();
+
+        // نسب تحليلية
+        $lowStockPercentage = $total_medicines > 0 ? ($totalLowStockCount / $total_medicines) * 100 : 0;
+
+        $response = [
+            'kpis' => [
+                'total_medicines' => $total_medicines,
+                'total_quantity' => $total_quantity,
+                'stock_value_cost' => $stock_value_cost,
+                'potential_revenue' => $potential_revenue,
+                'out_of_stock_count' => $out_of_stock_count,
+                'low_stock_percentage' => $lowStockPercentage,
+            ],
+            'low_stock' => [
+                'count' => $totalLowStockCount,
+                'items' => $lowStock,
+            ],
+            'near_expiry' => [
+                'days_window' => $days,
+                'count' => $expiringGrouped->count(), // عدد الأدوية
+                'batches_count' => $totalExpiringBatchesCount, // إجمالي الدُفعات ضمن النافذة
+                'items' => $expiringGrouped,
+            ],
+            'by_category' => $byCategory,
+            'top_value_items' => $topValueItems,
+        ];
+
+        return response()->json([
+            'status' => true,
+            'status_code' => 200,
+            'message' => 'تقرير المخزون اللحظي',
+            'data' => $response,
+        ]);
+    }
+
+// =======================================================================================
+
+// =======================================================================================
 
 
     public function ExpiryReports(Request $request)
@@ -157,7 +361,8 @@ class ReportController extends Controller
             'to_date' => 'nullable|date'
         ]);
 
-        $query = DamagedMedicine::with(['medicine.category']);
+        $query = DamagedMedicine::with(['batch.medicine.category'])
+            ->whereHas('batch');
 
         // فلترة حسب السبب
         if ($request->reason) {
@@ -174,101 +379,109 @@ class ReportController extends Controller
 
         $damaged = $query->orderBy('damaged_at', 'desc')->get();
 
+        // دالة مساعدة لحساب قيمة التلف مع تفضيل سعر الدُفعة
+        $calcValue = function($item) {
+            $unitPrice = optional($item->batch)->unit_price;
+            if ($unitPrice === null) {
+                $unitPrice = optional(optional($item->batch)->medicine)->supplier_price;
+            }
+            $unitPrice = (float) ($unitPrice ?? 0);
+            return ((float) ($item->quantity_talif ?? 0)) * $unitPrice;
+        };
+
         // حساب الإحصائيات الأساسية
         $total_damaged_count = $damaged->count();
         $total_damaged_quantity = $damaged->sum('quantity_talif');
-        $total_value_loss = $damaged->sum(function($item) {
-            return $item->quantity_talif * ($item->medicine->supplier_price ?? 0);
-        });
+        $total_value_loss = $damaged->sum($calcValue);
 
         // تجميع حسب السبب
-        $by_reason = $damaged->groupBy('reason')->map(function($items, $reason) {
+        $by_reason = $damaged->groupBy('reason')->map(function($items, $reason) use ($calcValue) {
             return [
                 'count' => $items->count(),
                 'quantity' => $items->sum('quantity_talif'),
-                'value' => $items->sum(function($item) {
-                    return $item->quantity_talif * ($item->medicine->supplier_price ?? 0);
-                }),
+                'value' => $items->sum($calcValue),
             ];
         });
 
         // الاتجاهات الشهرية
         $monthly_trends = $damaged->groupBy(function($item) {
             return $item->damaged_at->format('Y-m');
-        })->map(function($items, $month) {
+        })->map(function($items, $month) use ($calcValue) {
             return [
                 'month' => $month,
                 'quantity' => $items->sum('quantity_talif'),
-                'value' => $items->sum(function($item) {
-                    return $item->quantity_talif * ($item->medicine->supplier_price ?? 0);
-                }),
+                'value' => $items->sum($calcValue),
             ];
         })->sortBy('month')->values();
 
-        $top_damaged_medicines = $damaged->groupBy('medicine_id')->map(function($items, $medicine_id) {
-            $medicine = $items->first()->medicine;
+        // أعلى الأدوية من حيث قيمة التلف (اعتماداً على الدُفعات)
+        $top_damaged_medicines = $damaged->groupBy(function($item) {
+            return optional($item->batch)->medicine_id;
+        })->map(function($items, $medicineId) use ($calcValue) {
+            $medicine = optional($items->first()->batch)->medicine;
             $most_common_reason = $items->groupBy('reason')->sortByDesc(function($group) {
                 return $group->sum('quantity_talif');
             })->keys()->first();
 
             return [
-                'medicine_name' => $medicine->medicine_name,
+                'medicine_id' => $medicineId,
+                'medicine_name' => optional($medicine)->medicine_name,
+                'category' => optional($medicine->category)->name,
                 'quantity' => $items->sum('quantity_talif'),
-                'value' => $items->sum(function($item) {
-                    return $item->quantity_talif * ($item->medicine->supplier_price ?? 0);
-                }),
+                'value' => $items->sum($calcValue),
                 'reason' => $most_common_reason
             ];
         })->sortByDesc('value')->take(6)->values();
 
-        // تجميع حسب الفئة
-        $by_category = $damaged->groupBy('medicine.category.name')->map(function($items, $category) {
+        // تجميع حسب الفئة (اعتماداً على دُفعات الأدوية)
+        $by_category = $damaged->groupBy(function($item) {
+            return optional(optional($item->batch)->medicine->category)->name ?? 'غير مصنف';
+        })->map(function($items, $category) use ($calcValue) {
             return [
                 'category' => $category,
                 'quantity' => $items->sum('quantity_talif'),
-                'value' => $items->sum(function($item) {
-                    return $item->quantity_talif * ($item->medicine->supplier_price ?? 0);
-                }),
+                'value' => $items->sum($calcValue),
             ];
         })->sortByDesc('value')->values();
 
-        // تفاصيل كل حالة تلف
-        $details = $damaged->map(function($item) {
+        // تفاصيل كل حالة تلف مع معلومات الدُفعة
+        $details = $damaged->map(function($item) use ($calcValue) {
+            $batch = $item->batch;
+            $medicine = optional($batch)->medicine;
             return [
-                'medicine_name' => $item->medicine->medicine_name,
-                'category' => $item->medicine->category->name ?? null,
+                'batch_number' => optional($batch)->batch_number,
+                'batch_expiry_date' => optional(optional($batch)->expiry_date)?->format('Y-m-d'),
+                'batch_unit_price' => (float) (optional($batch)->unit_price ?? 0),
+                'medicine_name' => optional($medicine)->medicine_name,
+                'category' => optional(optional($medicine)->category)->name,
                 'quantity_talif' => $item->quantity_talif,
                 'reason' => $item->reason,
-                'notes' => $item->notes,
                 'damaged_at' => $item->damaged_at->format('Y-m-d'),
-                'value_loss' => $item->quantity_talif * ($item->medicine->supplier_price ?? 0)
+                'value_loss' => $calcValue($item),
             ];
         });
 
-        // التوصيات الذكية
+        // التوصيات الذكية (تُحسب اعتماداً على الدُفعات)
         $recommendations = [];
-
-        // توصية إذا كان التلف بسبب انتهاء الصلاحية أكثر من 50%
-        $expired_percentage = $by_reason->get('expired')['count'] ?? 0;
-        if ($expired_percentage > ($total_damaged_count * 0.5)) {
-            $recommendations[] = "Improve expiry date monitoring and stock rotation.";
+        $expiredCount = ($by_reason['expired']['count'] ?? $by_reason->get('expired')['count'] ?? 0);
+        if ($total_damaged_count > 0 && $expiredCount > ($total_damaged_count * 0.5)) {
+            $recommendations[] = 'تعزيز مراقبة تواريخ الانتهاء وتطبيق مبدأ FIFO.';
         }
 
-        // توصية إذا كان التلف بسبب سوء التخزين أكثر من 30%
-        $storage_percentage = $by_reason->get('storage_issue')['count'] ?? 0;
-        if ($storage_percentage > ($total_damaged_count * 0.3)) {
-            $recommendations[] = "Review and improve storage conditions.";
+        $storageIssueCount = ($by_reason['storage_issue']['count'] ?? $by_reason->get('storage_issue')['count'] ?? 0);
+        if ($total_damaged_count > 0 && $storageIssueCount > ($total_damaged_count * 0.3)) {
+            $recommendations[] = 'مراجعة وتحسين شروط التخزين ودرجة الحرارة.';
         }
 
-        // توصية إذا كان هناك أدوية تتلف بشكل متكرر
         if ($top_damaged_medicines->count() > 0) {
             $top_medicine = $top_damaged_medicines->first();
-            $recommendations[] = "Focus on improving handling of {$top_medicine['medicine_name']}.";
+            if (!empty($top_medicine['medicine_name'])) {
+                $recommendations[] = 'التركيز على تحسين تداول: ' . $top_medicine['medicine_name'];
+            }
         }
 
-        // إذا لم تكن هناك توصيات محددة
         if (empty($recommendations)) {
-            $recommendations[] = "Monitor damaged medicines trends regularly.";
+            $recommendations[] = 'مراقبة اتجاهات التلف بصورة دورية وتحسين الإجراءات الوقائية.';
         }
 
         $response = [

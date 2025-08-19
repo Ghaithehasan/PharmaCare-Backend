@@ -571,5 +571,5 @@ public function logout()
                 'error' => $e->getMessage()
             ], 500);
         }
-    }
+}
 }
