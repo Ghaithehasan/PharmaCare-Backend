@@ -9,52 +9,12 @@ use App\Models\DamagedMedicine;
 use App\Models\InventoryCountItem;
 use App\Models\OrderItem;
 use App\Models\MedicineBatch;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
-use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
-    /**
-     * تقرير شامل لجرد المخزون
-     */
-    public function comprehensiveInventoryReport(Request $request)
-    {
-        $request->validate([
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date',
-            'status' => 'nullable|in:in_progress,completed'
-        ]);
-
-        $query = InventoryCount::with(['items.medicine.category', 'createdBy', 'approvedBy']);
-
-        if ($request->start_date) {
-            $query->where('count_date', '>=', $request->start_date);
-        }
-        if ($request->end_date) {
-            $query->where('count_date', '<=', $request->end_date);
-        }
-        if ($request->status) {
-            $query->where('status', $request->status);
-        }
-
-        $inventoryCounts = $query->orderBy('count_date', 'desc')->get();
-
-
-        $report = [
-            'summary' => $this->generateInventorySummary($inventoryCounts),
-            'discrepancies' => $this->analyzeDiscrepancies($inventoryCounts),
-            'category_analysis' => $this->categoryDiscrepancyAnalysis($inventoryCounts),
-            'trends' => $this->generateTrends($inventoryCounts),
-            'recommendations' => $this->generateRecommendations($inventoryCounts)
-        ];
-
-        return response()->json([
-            'status' => true,
-            'message' => 'تم إنشاء التقرير الشامل بنجاح',
-            'data' => $report
-        ]);
-    }
+    // تم حذف تقرير الجرد الشامل القديم لعدم استخدامه
 
 // =======================================================================================
 
@@ -72,7 +32,7 @@ class ReportController extends Controller
             'limit' => 'nullable|integer|min:1|max:200'
         ]);
 
-        // dd();
+
 
         $days = (int) $request->input('days', 60);
         $limit = (int) $request->input('limit', 20);
@@ -501,466 +461,140 @@ class ReportController extends Controller
 
         return response()->json($response);
     }
+
     /**
-     * تقرير الفروقات والتناقضات
+     * تقرير تحليل التصنيفات (مُعاد تفعيله)
      */
-    public function discrepancyReport(Request $request)
+    public function categoryAnalysisReport(Request $request)
     {
         $request->validate([
-            'threshold' => 'nullable|numeric|min:0',
-            'category_id' => 'nullable|exists:categories,id'
+            'brand_id' => 'nullable|exists:brands,id',
+            'medicine_form_id' => 'nullable|exists:medicine_forms,id',
+            'search' => 'nullable|string',
+            'limit' => 'nullable|integer|min:1|max:50'
         ]);
 
-        $threshold = $request->threshold ?? 5; // نسبة الفرق المسموح بها
+        $limit = (int) $request->input('limit', 10);
 
-        $discrepancies = InventoryCountItem::with(['inventoryCount', 'medicine.category'])
-            ->where('difference', '!=', 0)
-            ->whereRaw('ABS(difference) >= (system_quantity * ? / 100)', [$threshold])
-            ->when($request->category_id, function($query, $categoryId) {
-                return $query->whereHas('medicine', function($q) use ($categoryId) {
-                    $q->where('category_id', $categoryId);
+        // dd($request->all());
+
+        // تحميل التصنيفات مع أدويةها وعلاقاتها المطلوبة
+        $categories = \App\Models\Category::with(['medicines.category', 'medicines.medicineForm', 'medicines.brand'])->get();
+
+        $data = $categories->map(function($category) use ($request, $limit) {
+            $meds = $category->medicines;
+
+            // فلاتر اختيارية على مستوى الأدوية داخل التصنيف
+            if ($request->brand_id) {
+                $meds = $meds->where('brand_id', (int) $request->brand_id);
+            }
+            if ($request->medicine_form_id) {
+                $meds = $meds->where('medicine_form_id', (int) $request->medicine_form_id);
+            }
+            if ($request->search) {
+                $search = strtolower($request->search);
+                $meds = $meds->filter(function($m) use ($search) {
+                    $name = strtolower($m->medicine_name ?? '');
+                    $an = strtolower($m->arabic_name ?? '');
+                    $sn = strtolower($m->sentific_name ?? '');
+                    $bc = strtolower($m->bar_code ?? '');
+                    return str_contains($name, $search)
+                        || str_contains($an, $search)
+                        || str_contains($sn, $search)
+                        || str_contains($bc, $search);
                 });
-            })
-            ->orderByRaw('ABS(difference) DESC')
-            ->get();
+            }
 
-        $analysis = [
-            'critical_discrepancies' => $discrepancies->where('difference', '<', -10),
-            'moderate_discrepancies' => $discrepancies->whereBetween('difference', [-10, -5]),
-            'minor_discrepancies' => $discrepancies->whereBetween('difference', [-5, 0]),
-            'overstock_discrepancies' => $discrepancies->where('difference', '>', 0),
-            'statistics' => [
-                'total_discrepancies' => $discrepancies->count(),
-                'total_value_loss' => $discrepancies->sum(function($item) {
-                    return abs($item->difference) * $item->medicine->supplier_price;
-                }),
-                'average_discrepancy_percentage' => $discrepancies->avg(function($item) {
-                    return $item->system_quantity > 0 ? (abs($item->difference) / $item->system_quantity) * 100 : 0;
-                })
-            ]
-        ];
+            $totalMedicines = $meds->count();
+            $totalQuantity = (int) $meds->sum('quantity');
+            $stockCost = $meds->sum(function($m) {
+                return ((float) ($m->quantity ?? 0)) * ((float) ($m->supplier_price ?? 0));
+            });
+            $stockRetail = $meds->sum(function($m) {
+                return ((float) ($m->quantity ?? 0)) * ((float) ($m->people_price ?? 0));
+            });
+            $lowStockCount = $meds->filter(function($m) {
+                return (int) ($m->alert_quantity ?? 0) > 0 && (int) ($m->quantity ?? 0) <= (int) ($m->alert_quantity ?? 0);
+            })->count();
+            $outOfStockCount = $meds->where('quantity', 0)->count();
+            $avgSupplierPrice = $totalMedicines > 0 ? (float) $meds->avg('supplier_price') : 0.0;
+            $avgPeoplePrice = $totalMedicines > 0 ? (float) $meds->avg('people_price') : 0.0;
 
-        return response()->json([
-            'status' => true,
-            'message' => 'تقرير الفروقات والتناقضات',
-            'data' => $analysis
-        ]);
-    }
-
-    /**
-     * تقرير الأدوية المفقودة والمتسربة
-     */
-    public function missingAndLeakageReport()
-    {
-        $missingItems = InventoryCountItem::with(['inventoryCount', 'medicine.category'])
-            ->where('difference', '<', 0)
-            ->where('actual_quantity', 0)
-            ->orderBy('difference', 'asc')
-            ->get();
-
-        $leakageItems = InventoryCountItem::with(['inventoryCount', 'medicine.category'])
-            ->where('difference', '<', 0)
-            ->where('actual_quantity', '>', 0)
-            ->orderBy('difference', 'asc')
-            ->get();
-
-        $report = [
-            'missing_items' => [
-                'count' => $missingItems->count(),
-                'total_value' => $missingItems->sum(function($item) {
-                    return abs($item->difference) * $item->medicine->supplier_price;
-                }),
-                'items' => $missingItems->map(function($item) {
-                    return [
-                        'medicine_name' => $item->medicine->medicine_name,
-                        'category' => $item->medicine->category->name,
-                        'missing_quantity' => abs($item->difference),
-                        'value_loss' => abs($item->difference) * $item->medicine->supplier_price,
-                        'count_date' => $item->inventoryCount->count_date
-                    ];
-                })
-            ],
-            'leakage_items' => [
-                'count' => $leakageItems->count(),
-                'total_value' => $leakageItems->sum(function($item) {
-                    return abs($item->difference) * $item->medicine->supplier_price;
-                }),
-                'items' => $leakageItems->map(function($item) {
-                    return [
-                        'medicine_name' => $item->medicine->medicine_name,
-                        'category' => $item->medicine->category->name,
-                        'leaked_quantity' => abs($item->difference),
-                        'value_loss' => abs($item->difference) * $item->medicine->supplier_price,
-                        'leakage_percentage' => $item->system_quantity > 0 ?
-                            (abs($item->difference) / $item->system_quantity) * 100 : 0
-                    ];
-                })
-            ]
-        ];
-
-        return response()->json([
-            'status' => true,
-            'message' => 'تقرير الأدوية المفقودة والمتسربة',
-            'data' => $report
-        ]);
-    }
-
-    /**
-     * تقرير الأداء الزمني للجرد
-     */
-    public function timePerformanceReport()
-    {
-        $inventoryCounts = InventoryCount::with(['createdBy', 'approvedBy'])
-            ->where('status', 'completed')
-            ->orderBy('count_date', 'desc')
-            ->get();
-
-        $performance = [
-            'total_counts' => $inventoryCounts->count(),
-            'average_items_per_count' => $inventoryCounts->avg(function($count) {
-                return $count->items->count();
-            }),
-            'completion_time_analysis' => $inventoryCounts->map(function($count) {
-                $createdAt = Carbon::parse($count->created_at);
-                $updatedAt = Carbon::parse($count->updated_at);
-                $duration = $createdAt->diffInHours($updatedAt);
-
+            // توزيع حسب الشكل الدوائي
+            $formsDistribution = $meds->groupBy('medicine_form_id')->map(function($items, $formId) {
+                $formName = optional($items->first()->medicineForm)->name ?? 'غير محدد';
                 return [
-                    'count_number' => $count->count_number,
-                    'count_date' => $count->count_date,
-                    'duration_hours' => $duration,
-                    'items_count' => $count->items->count(),
-                    'efficiency_score' => $count->items->count() > 0 ?
-                        $count->items->count() / $duration : 0
+                    'form_id' => $formId,
+                    'form_name' => $formName,
+                    'count' => $items->count(),
                 ];
-            }),
-            'efficiency_ranking' => $inventoryCounts->map(function($count) {
-                $duration = Carbon::parse($count->created_at)->diffInHours(Carbon::parse($count->updated_at));
-                $itemsCount = $count->items->count();
-                $efficiency = $itemsCount > 0 ? $itemsCount / $duration : 0;
+            })->values()->sortByDesc('count')->values();
 
+            // توزيع حسب البراند
+            $brandsDistribution = $meds->groupBy('brand_id')->map(function($items, $brandId) {
+                $brandName = optional($items->first()->brand)->name ?? 'غير محدد';
                 return [
-                    'count_number' => $count->count_number,
-                    'efficiency_score' => $efficiency,
-                    'items_per_hour' => $efficiency
+                    'brand_id' => $brandId,
+                    'brand_name' => $brandName,
+                    'count' => $items->count(),
                 ];
-            })->sortByDesc('efficiency_score')->values()
+            })->values()->sortByDesc('count')->values();
+
+            // أعلى الأدوية قيمة داخل التصنيف
+            $topMedicinesByValue = $meds->map(function($m) {
+                $cost = ((float) ($m->quantity ?? 0)) * ((float) ($m->supplier_price ?? 0));
+                $retail = ((float) ($m->quantity ?? 0)) * ((float) ($m->people_price ?? 0));
+                return [
+                    'medicine_id' => $m->id,
+                    'medicine_name' => $m->medicine_name,
+                    'form' => optional($m->medicineForm)->name,
+                    'brand' => optional($m->brand)->name,
+                    'quantity' => (int) $m->quantity,
+                    'supplier_price' => (float) ($m->supplier_price ?? 0),
+                    'people_price' => (float) ($m->people_price ?? 0),
+                    'stock_cost' => $cost,
+                    'stock_retail' => $retail,
+                ];
+            })->sortByDesc('stock_cost')->values()->take($limit);
+
+            return [
+                'category_id' => $category->id,
+                'category_name' => $category->name,
+                'totals' => [
+                    'total_medicines' => $totalMedicines,
+                    'total_quantity' => $totalQuantity,
+                    'stock_cost' => $stockCost,
+                    'stock_retail' => $stockRetail,
+                    'low_stock_count' => $lowStockCount,
+                    'out_of_stock_count' => $outOfStockCount,
+                    'avg_supplier_price' => $avgSupplierPrice,
+                    'avg_people_price' => $avgPeoplePrice,
+                ],
+                'distributions' => [
+                    'forms' => $formsDistribution,
+                    'brands' => $brandsDistribution,
+                ],
+                'top_medicines_by_value' => $topMedicinesByValue,
+            ];
+        })->values();
+
+        // ملخص شامل عبر كل التصنيفات
+        $summary = [
+            'categories_count' => $data->count(),
+            'total_medicines' => (int) $data->sum(fn($c) => $c['totals']['total_medicines']),
+            'total_quantity' => (int) $data->sum(fn($c) => $c['totals']['total_quantity']),
+            'stock_cost' => (float) $data->sum(fn($c) => $c['totals']['stock_cost']),
+            'stock_retail' => (float) $data->sum(fn($c) => $c['totals']['stock_retail']),
+            'low_stock_count' => (int) $data->sum(fn($c) => $c['totals']['low_stock_count']),
+            'out_of_stock_count' => (int) $data->sum(fn($c) => $c['totals']['out_of_stock_count']),
         ];
-
-        return response()->json([
-            'status' => true,
-            'message' => 'تقرير الأداء الزمني للجرد',
-            'data' => $performance
-        ]);
-    }
-
-    /**
-     * تقرير تحليل التصنيفات
-     */
-    public function categoryAnalysisReport()
-    {
-        $categoryAnalysis = DB::table('inventory_count_items')
-            ->join('medicines', 'inventory_count_items.medicine_id', '=', 'medicines.id')
-            ->join('categories', 'medicines.category_id', '=', 'categories.id')
-            ->select(
-                'categories.id',
-                'categories.name as category_name',
-                DB::raw('COUNT(*) as total_items'),
-                DB::raw('SUM(ABS(inventory_count_items.difference)) as total_discrepancy'),
-                DB::raw('AVG(ABS(inventory_count_items.difference)) as avg_discrepancy'),
-                DB::raw('SUM(CASE WHEN inventory_count_items.difference < 0 THEN 1 ELSE 0 END) as missing_items'),
-                DB::raw('SUM(CASE WHEN inventory_count_items.difference > 0 THEN 1 ELSE 0 END) as overstock_items'),
-                DB::raw('SUM(ABS(inventory_count_items.difference) * medicines.supplier_price) as total_value_loss')
-            )
-            ->groupBy('categories.id', 'categories.name')
-            ->orderBy('total_value_loss', 'desc')
-            ->get();
 
         return response()->json([
             'status' => true,
             'message' => 'تحليل التصنيفات',
-            'data' => $categoryAnalysis
+            'summary' => $summary,
+            'data' => $data,
         ]);
     }
 
-    /**
-     * تقرير التنبؤات والتحليل المستقبلي
-     */
-    public function predictiveAnalysisReport()
-    {
-        // تحليل الاتجاهات الشهرية
-        $monthlyTrends = DB::table('inventory_count_items')
-            ->join('inventory_counts', 'inventory_count_items.inventory_count_id', '=', 'inventory_counts.id')
-            ->select(
-                DB::raw('YEAR(count_date) as year'),
-                DB::raw('MONTH(count_date) as month'),
-                DB::raw('COUNT(*) as total_items'),
-                DB::raw('SUM(ABS(difference)) as total_discrepancy'),
-                DB::raw('AVG(ABS(difference)) as avg_discrepancy')
-            )
-            ->groupBy('year', 'month')
-            ->orderBy('year', 'desc')
-            ->orderBy('month', 'desc')
-            ->get();
-
-        // تحليل الأدوية الأكثر عرضة للفقدان
-        $highRiskItems = DB::table('inventory_count_items')
-            ->join('medicines', 'inventory_count_items.medicine_id', '=', 'medicines.id')
-            ->select(
-                'medicines.id',
-                'medicines.medicine_name',
-                DB::raw('COUNT(*) as discrepancy_count'),
-                DB::raw('AVG(ABS(difference)) as avg_discrepancy'),
-                DB::raw('SUM(CASE WHEN difference < 0 THEN 1 ELSE 0 END) as missing_occurrences')
-            )
-            ->groupBy('medicines.id', 'medicines.medicine_name')
-            ->having('discrepancy_count', '>=', 2)
-            ->orderBy('missing_occurrences', 'desc')
-            ->limit(20)
-            ->get();
-
-        $predictions = [
-            'monthly_trends' => $monthlyTrends,
-            'high_risk_items' => $highRiskItems,
-            'recommendations' => [
-                'increase_security_for_high_risk_items' => $highRiskItems->where('missing_occurrences', '>=', 3)->count(),
-                'implement_regular_audits' => $monthlyTrends->avg('avg_discrepancy') > 5,
-                'consider_automated_tracking' => $highRiskItems->count() > 10
-            ]
-        ];
-
-        return response()->json([
-            'status' => true,
-            'message' => 'التحليل التنبؤي',
-            'data' => $predictions
-        ]);
-    }
-
-    /**
-     * إنشاء تقرير PDF شامل
-     */
-    public function generatePDFReport(Request $request)
-    {
-        $request->validate([
-            'report_type' => 'required|in:comprehensive,discrepancy,missing,performance,category,predictive'
-        ]);
-
-        $data = [];
-        $report_type = $request->report_type;
-
-        switch ($report_type) {
-            case 'comprehensive':
-                $inventoryCounts = InventoryCount::with(['items.medicine.category', 'createdBy', 'approvedBy'])->get();
-                $data = [
-                    'summary' => $this->generateInventorySummary($inventoryCounts),
-                    'discrepancies' => $this->analyzeDiscrepancies($inventoryCounts),
-                    'category_analysis' => $this->categoryDiscrepancyAnalysis($inventoryCounts),
-                    'trends' => $this->generateTrends($inventoryCounts),
-                    'recommendations' => $this->generateRecommendations($inventoryCounts)
-                ];
-                break;
-            case 'discrepancy':
-                $discrepancies = InventoryCountItem::with(['inventoryCount', 'medicine.category'])
-                    ->where('difference', '!=', 0)
-                    ->get();
-                $data = [
-                    'critical_discrepancies' => $discrepancies->where('difference', '<', -10),
-                    'moderate_discrepancies' => $discrepancies->whereBetween('difference', [-10, -5]),
-                    'minor_discrepancies' => $discrepancies->whereBetween('difference', [-5, 0]),
-                    'overstock_discrepancies' => $discrepancies->where('difference', '>', 0)
-                ];
-                break;
-            case 'missing':
-                $missingItems = InventoryCountItem::with(['inventoryCount', 'medicine.category'])
-                    ->where('difference', '<', 0)
-                    ->where('actual_quantity', 0)
-                    ->get();
-                $data = [
-                    'missing_items' => $missingItems,
-                    'total_value' => $missingItems->sum(function($item) {
-                        return abs($item->difference) * $item->medicine->supplier_price;
-                    })
-                ];
-                break;
-            case 'performance':
-                $inventoryCounts = InventoryCount::with(['createdBy', 'approvedBy'])
-                    ->where('status', 'completed')
-                    ->get();
-                $data = [
-                    'total_counts' => $inventoryCounts->count(),
-                    'average_items_per_count' => $inventoryCounts->avg(function($count) {
-                        return $count->items->count();
-                    }),
-                    'efficiency_ranking' => $inventoryCounts->map(function($count) {
-                        $duration = Carbon::parse($count->created_at)->diffInHours(Carbon::parse($count->updated_at));
-                        $itemsCount = $count->items->count();
-                        $efficiency = $itemsCount > 0 ? $itemsCount / $duration : 0;
-
-                        return [
-                            'count_number' => $count->count_number,
-                            'efficiency_score' => $efficiency,
-                            'items_per_hour' => $efficiency
-                        ];
-                    })->sortByDesc('efficiency_score')->values()
-                ];
-                break;
-            case 'category':
-                $categoryAnalysis = DB::table('inventory_count_items')
-                    ->join('medicines', 'inventory_count_items.medicine_id', '=', 'medicines.id')
-                    ->join('categories', 'medicines.category_id', '=', 'categories.id')
-                    ->select(
-                        'categories.id',
-                        'categories.name as category_name',
-                        DB::raw('COUNT(*) as total_items'),
-                        DB::raw('SUM(ABS(inventory_count_items.difference)) as total_discrepancy'),
-                        DB::raw('AVG(ABS(inventory_count_items.difference)) as avg_discrepancy'),
-                        DB::raw('SUM(CASE WHEN inventory_count_items.difference < 0 THEN 1 ELSE 0 END) as missing_items'),
-                        DB::raw('SUM(CASE WHEN inventory_count_items.difference > 0 THEN 1 ELSE 0 END) as overstock_items'),
-                        DB::raw('SUM(ABS(inventory_count_items.difference) * medicines.supplier_price) as total_value_loss')
-                    )
-                    ->groupBy('categories.id', 'categories.name')
-                    ->orderBy('total_value_loss', 'desc')
-                    ->get();
-                $data = ['category_analysis' => $categoryAnalysis];
-                break;
-            case 'predictive':
-                $monthlyTrends = DB::table('inventory_count_items')
-                    ->join('inventory_counts', 'inventory_count_items.inventory_count_id', '=', 'inventory_counts.id')
-                    ->select(
-                        DB::raw('YEAR(count_date) as year'),
-                        DB::raw('MONTH(count_date) as month'),
-                        DB::raw('COUNT(*) as total_items'),
-                        DB::raw('SUM(ABS(difference)) as total_discrepancy'),
-                        DB::raw('AVG(ABS(difference)) as avg_discrepancy')
-                    )
-                    ->groupBy('year', 'month')
-                    ->orderBy('year', 'desc')
-                    ->orderBy('month', 'desc')
-                    ->get();
-                $data = ['monthly_trends' => $monthlyTrends];
-                break;
-        }
-
-        $pdf = Pdf::loadView('reports.inventory', compact('data', 'report_type'))
-                  ->setPaper('A4', 'portrait');
-
-        return $pdf->download('inventory_report_' . $report_type . '_' . date('Y-m-d') . '.pdf');
-    }
-
-    // Helper methods for data preparation
-    private function generateInventorySummary($inventoryCounts)
-    {
-        $totalItems = $inventoryCounts->sum(function($count) {
-            return $count->items->count();
-        });
-
-        $totalDiscrepancies = $inventoryCounts->sum(function($count) {
-            return $count->items->where('difference', '!=', 0)->count();
-        });
-
-        return [
-            'total_counts' => $inventoryCounts->count(),
-            'total_items_checked' => $totalItems,
-            'total_discrepancies' => $totalDiscrepancies,
-            'accuracy_rate' => $totalItems > 0 ? (($totalItems - $totalDiscrepancies) / $totalItems) * 100 : 0,
-            'total_value_loss' => $inventoryCounts->sum(function($count) {
-                return $count->items->sum(function($item) {
-                    return abs($item->difference) * $item->medicine->supplier_price;
-                });
-            })
-        ];
-    }
-
-    private function analyzeDiscrepancies($inventoryCounts)
-    {
-        $allItems = collect();
-        foreach ($inventoryCounts as $count) {
-            $allItems = $allItems->merge($count->items);
-        }
-
-        return [
-            'critical_discrepancies' => $allItems->where('difference', '<', -10)->count(),
-            'moderate_discrepancies' => $allItems->whereBetween('difference', [-10, -5])->count(),
-            'minor_discrepancies' => $allItems->whereBetween('difference', [-5, 0])->count(),
-            'overstock_items' => $allItems->where('difference', '>', 0)->count(),
-            'most_affected_categories' => $allItems->where('difference', '!=', 0)
-                ->groupBy('medicine.category.name')
-                ->map(function($items) {
-                    return $items->count();
-                })
-                ->sortDesc()
-                ->take(5)
-        ];
-    }
-
-    private function categoryDiscrepancyAnalysis($inventoryCounts)
-    {
-        $categoryData = [];
-        foreach ($inventoryCounts as $count) {
-            foreach ($count->items as $item) {
-                $categoryName = $item->medicine->category->name;
-                if (!isset($categoryData[$categoryName])) {
-                    $categoryData[$categoryName] = [
-                        'total_items' => 0,
-                        'discrepancies' => 0,
-                        'total_value_loss' => 0
-                    ];
-                }
-
-                $categoryData[$categoryName]['total_items']++;
-                if ($item->difference != 0) {
-                    $categoryData[$categoryName]['discrepancies']++;
-                    $categoryData[$categoryName]['total_value_loss'] +=
-                        abs($item->difference) * $item->medicine->supplier_price;
-                }
-            }
-        }
-
-        return $categoryData;
-    }
-
-    private function generateTrends($inventoryCounts)
-    {
-        return [
-            'monthly_trends' => $inventoryCounts->groupBy(function($count) {
-                return Carbon::parse($count->count_date)->format('Y-m');
-            })->map(function($counts) {
-                return [
-                    'counts' => $counts->count(),
-                    'total_items' => $counts->sum(function($count) {
-                        return $count->items->count();
-                    }),
-                    'discrepancies' => $counts->sum(function($count) {
-                        return $count->items->where('difference', '!=', 0)->count();
-                    })
-                ];
-            })
-        ];
-    }
-
-    private function generateRecommendations($inventoryCounts)
-    {
-        $totalDiscrepancies = $inventoryCounts->sum(function($count) {
-            return $count->items->where('difference', '!=', 0)->count();
-        });
-
-
-        $recommendations = [];
-
-        if ($totalDiscrepancies > 50) {
-            $recommendations[] = 'زيادة وتيرة عمليات الجرد';
-        }
-
-        if ($inventoryCounts->avg(function($count) {
-            return $count->items->where('difference', '<', 0)->count();
-        }) > 10) {
-            $recommendations[] = 'تحسين إجراءات الأمان للمخزون';
-        }
-
-        if ($inventoryCounts->count() < 12) {
-            $recommendations[] = 'إجراء جرد شهري منتظم';
-        }
-
-        return $recommendations;
-    }
 }
