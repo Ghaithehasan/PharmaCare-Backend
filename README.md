@@ -1,4 +1,4 @@
-# 💊 Pharmacy Management System API
+# PharmaCare Backend API
 
 <p align="center">
   <img src="https://img.shields.io/badge/Laravel-11.x-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel">
@@ -8,200 +8,176 @@
 </p>
 
 <p align="center">
-  <strong>RESTful API لإدارة الصيدليات بشكل متكامل وآمن</strong>
+  <strong>A comprehensive RESTful API for pharmacy management built with Laravel</strong>
 </p>
 
 <p align="center">
-  <a href="#-المميزات">المميزات</a> •
-  <a href="#-التثبيت-والإعداد">التثبيت</a> •
-  <a href="#-واجهة-البرمجة-api">API</a> •
-  <a href="#-المطور">التواصل</a>
+  <a href="#features">Features</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#api-documentation">API Docs</a> •
+  <a href="#contact">Contact</a>
 </p>
 
 ---
 
-## 📖 نظرة عامة
+## Overview
 
-نظام إدارة صيدلية متكامل مبني بإطار عمل Laravel، يوفر واجهة برمجية RESTful API احترافية لإدارة جميع عمليات الصيدلية من مخزون وأدوية ومبيعات ومشتريات وعملاء وموردين.
+PharmaCare Backend is a robust pharmacy management system designed to streamline pharmaceutical operations. Built with Laravel, it provides a complete RESTful API for managing inventory, sales, purchases, customers, and suppliers.
 
-### 🎯 الهدف من المشروع
-
-تم تطوير هذا النظام لتسهيل وأتمتة العمليات اليومية للصيدليات:
-
-- تتبع المخزون والأدوية بدقة
-- إدارة عمليات البيع والشراء
-- متابعة تواريخ انتهاء الصلاحية
-- إصدار التقارير والإحصائيات التفصيلية
-- إدارة العملاء والموردين
+This system automates daily pharmacy workflows including:
+- Inventory tracking and stock management
+- Sales and purchase order processing
+- Medicine expiry date monitoring
+- Customer and supplier relationship management
+- Comprehensive reporting and analytics
 
 ---
 
-## ✨ المميزات
+## Features
 
-### 🔐 النظام والأمان
+### Authentication & Security
+- Secure authentication using Laravel Sanctum
+- Role-based access control (Admin, Pharmacist, Cashier)
+- Protection against SQL Injection and XSS attacks
+- Password encryption with bcrypt
+- API rate limiting
 
-- نظام مصادقة قوي باستخدام Laravel Sanctum
-- إدارة الأدوار والصلاحيات (Admin, Pharmacist, Cashier)
-- حماية شاملة ضد هجمات SQL Injection و XSS
-- تشفير كلمات المرور باستخدام bcrypt
-- تحديد معدل الطلبات (Rate Limiting)
+### Medicine & Inventory Management
+- Complete medicine database with detailed information
+- Real-time stock level tracking
+- Automatic expiry date alerts
+- Low stock notifications
+- Category-based medicine classification
+- Advanced search and filtering
 
-### 💊 إدارة الأدوية والمخزون
+### Sales Management
+- Create and manage sales invoices
+- PDF invoice generation
+- Sales history tracking
+- Return processing
+- Automatic tax calculations
 
-- قاعدة بيانات شاملة للأدوية مع جميع التفاصيل
-- تتبع الكميات المتوفرة في المخزون
-- تنبيهات تلقائية للأدوية منتهية الصلاحية أو القريبة من الانتهاء
-- تنبيهات للمخزون المنخفض
-- تصنيف الأدوية حسب الفئات والأنواع
-- بحث وفلترة متقدمة
+### Purchase Management
+- Record supplier purchases
+- Automatic inventory updates
+- Purchase cost tracking
+- Complete purchase history
 
-### 🧾 نظام المبيعات
+### Customer & Supplier Management
+- Customer database with purchase history
+- Supplier information management
+- Contact details and addresses
+- Transaction records
 
-- إنشاء فواتير بيع احترافية
-- طباعة الفواتير بصيغة PDF
-- سجل تفصيلي لجميع عمليات البيع
-- إمكانية إرجاع المبيعات
-- حساب تلقائي للإجماليات والضرائب
-
-### 📦 إدارة المشتريات
-
-- تسجيل عمليات الشراء من الموردين
-- إضافة الأدوية للمخزون تلقائياً عند الشراء
-- متابعة تكاليف المشتريات
-- سجل كامل للمشتريات
-
-### 🏢 إدارة الموردين والعملاء
-
-- قاعدة بيانات كاملة للموردين
-- حفظ معلومات الاتصال والعناوين
-- سجل المشتريات من كل مورد
-- قاعدة بيانات العملاء وسجل مشترياتهم
-
-### 📊 التقارير والإحصائيات
-
-- تقارير المبيعات (يومية، أسبوعية، شهرية، سنوية)
-- تقارير حالة المخزون
-- تقارير الأرباح والخسائر
-- قائمة الأدوية الأكثر مبيعاً
-- تصدير التقارير بصيغة Excel و PDF
+### Reports & Analytics
+- Sales reports (daily, weekly, monthly, yearly)
+- Inventory status reports
+- Profit and loss statements
+- Best-selling medicines analysis
+- Export to Excel and PDF
 
 ---
 
-## 🛠️ التقنيات المستخدمة
+## Tech Stack
 
-| التقنية | الغرض |
-|---------|-------|
-| **Laravel 11.x** | إطار العمل الرئيسي |
-| **PHP 8.2+** | لغة البرمجة |
-| **MySQL 8.0+** | نظام إدارة قواعد البيانات |
-| **Laravel Sanctum** | نظام المصادقة والأمان |
-| **Spatie Laravel Permission** | إدارة الأدوار والصلاحيات |
-| **Laravel Excel** | تصدير واستيراد ملفات Excel |
-| **DomPDF** | توليد ملفات PDF |
+- **Laravel 11.x** - PHP Framework
+- **PHP 8.2+** - Programming Language
+- **MySQL 8.0+** - Database
+- **Laravel Sanctum** - API Authentication
+- **Spatie Laravel Permission** - Role & Permission Management
+- **Laravel Excel** - Data Export/Import
+- **DomPDF** - PDF Generation
 
 ---
 
-## 📥 التثبيت والإعداد
+## Installation
 
-### المتطلبات الأساسية
+### Prerequisites
 
-قبل البدء، تأكد من تثبيت:
-
-- PHP 8.2 أو أحدث
+Ensure you have the following installed:
+- PHP 8.2 or higher
 - Composer
-- MySQL 8.0 أو أحدث
+- MySQL 8.0 or higher
 - Git
 
-### خطوات التثبيت
+### Setup Instructions
 
-#### 1️⃣ استنساخ المشروع
-
+**1. Clone the repository**
 ```bash
-git clone https://github.com/Ghaithehasan/project_1.git
-cd project_1
+git clone https://github.com/Ghaithehasan/PharmaCare-Backend.git
+cd PharmaCare-Backend
 ```
 
-#### 2️⃣ تثبيت الحزم
-
+**2. Install dependencies**
 ```bash
 composer install
 ```
 
-#### 3️⃣ إعداد ملف البيئة
-
+**3. Environment configuration**
 ```bash
 cp .env.example .env
 php artisan key:generate
 ```
 
-#### 4️⃣ تكوين قاعدة البيانات
+**4. Configure database**
 
-افتح ملف `.env` وعدّل الإعدادات التالية:
-
+Edit your `.env` file:
 ```env
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=pharmacy_db
+DB_DATABASE=pharmacare_db
 DB_USERNAME=root
-DB_PASSWORD=your_password_here
+DB_PASSWORD=your_password
 ```
 
-#### 5️⃣ إنشاء قاعدة البيانات
-
+**5. Create database**
 ```bash
-# افتح MySQL
 mysql -u root -p
-
-# أنشئ قاعدة البيانات
-CREATE DATABASE pharmacy_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE pharmacare_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 exit;
 ```
 
-#### 6️⃣ تشغيل الترحيلات والبيانات التجريبية
-
+**6. Run migrations and seeders**
 ```bash
 php artisan migrate --seed
 ```
 
-#### 7️⃣ ربط مجلد التخزين
-
+**7. Create storage link**
 ```bash
 php artisan storage:link
 ```
 
-#### 8️⃣ تشغيل المشروع
-
+**8. Start the server**
 ```bash
 php artisan serve
 ```
 
-🎉 **الآن المشروع يعمل على:** `http://localhost:8000`
+Your API is now running at `http://localhost:8000`
 
 ---
 
-## 🚀 البدء السريع
+## Quick Start
 
-### حسابات تجريبية
+### Default Credentials
 
-بعد تشغيل الأمر `php artisan migrate --seed`، ستكون الحسابات التالية متاحة:
+After running migrations with seed data:
 
-**حساب المدير:**
+**Admin Account:**
 ```
 Email: admin@pharmacy.com
 Password: password
 ```
 
-**حساب الصيدلي:**
+**Pharmacist Account:**
 ```
 Email: pharmacist@pharmacy.com
 Password: password
 ```
 
-### اختبار API باستخدام cURL
+### Testing the API
 
-**تسجيل الدخول:**
-
+**Login Request:**
 ```bash
 curl -X POST http://localhost:8000/api/login \
   -H "Content-Type: application/json" \
@@ -212,254 +188,225 @@ curl -X POST http://localhost:8000/api/login \
   }'
 ```
 
-**الحصول على قائمة الأدوية:**
-
+**Get Medicines:**
 ```bash
 curl -X GET http://localhost:8000/api/medicines \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Accept: application/json"
 ```
 
 ---
 
-## 🔌 واجهة البرمجة (API)
+## API Documentation
 
-### عنوان الأساس (Base URL)
-
+### Base URL
 ```
 http://localhost:8000/api
 ```
 
-### المصادقة (Authentication)
-
-جميع المسارات المحمية تحتاج إلى Token في الـ Header:
-
+### Authentication
+Protected endpoints require a Bearer token in the header:
 ```
 Authorization: Bearer {your_access_token}
 ```
 
-### نقاط النهاية (Endpoints)
+### Endpoints
 
-#### 🔐 المصادقة
+#### Authentication
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/login` | User login |
+| POST | `/register` | Register new user |
+| POST | `/logout` | User logout |
+| GET | `/user` | Get current user info |
 
-| الطريقة | المسار | الوصف |
-|---------|-------|-------|
-| POST | /login | تسجيل الدخول |
-| POST | /register | تسجيل مستخدم جديد |
-| POST | /logout | تسجيل الخروج |
-| GET | /user | معلومات المستخدم الحالي |
+#### Medicines
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/medicines` | List all medicines |
+| POST | `/medicines` | Add new medicine |
+| GET | `/medicines/{id}` | Get medicine details |
+| PUT | `/medicines/{id}` | Update medicine |
+| DELETE | `/medicines/{id}` | Delete medicine |
+| GET | `/medicines/expiring` | Get expiring medicines |
+| GET | `/medicines/low-stock` | Get low stock medicines |
 
-#### 💊 الأدوية
+#### Sales
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/sales` | List all sales |
+| POST | `/sales` | Create new sale |
+| GET | `/sales/{id}` | Get sale details |
+| GET | `/sales/{id}/invoice` | Download PDF invoice |
 
-| الطريقة | المسار | الوصف |
-|---------|-------|-------|
-| GET | /medicines | قائمة جميع الأدوية |
-| POST | /medicines | إضافة دواء جديد |
-| GET | /medicines/{id} | تفاصيل دواء محدد |
-| PUT | /medicines/{id} | تحديث معلومات دواء |
-| DELETE | /medicines/{id} | حذف دواء |
-| GET | /medicines/expiring | الأدوية القريبة من الانتهاء |
-| GET | /medicines/low-stock | الأدوية منخفضة المخزون |
+#### Purchases
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/purchases` | List all purchases |
+| POST | `/purchases` | Record new purchase |
+| GET | `/purchases/{id}` | Get purchase details |
 
-#### 🧾 المبيعات
+#### Suppliers
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/suppliers` | List all suppliers |
+| POST | `/suppliers` | Add new supplier |
+| GET | `/suppliers/{id}` | Get supplier details |
+| PUT | `/suppliers/{id}` | Update supplier |
+| DELETE | `/suppliers/{id}` | Delete supplier |
 
-| الطريقة | المسار | الوصف |
-|---------|-------|-------|
-| GET | /sales | قائمة المبيعات |
-| POST | /sales | إنشاء فاتورة بيع جديدة |
-| GET | /sales/{id} | تفاصيل فاتورة معينة |
-| GET | /sales/{id}/invoice | تحميل الفاتورة بصيغة PDF |
+#### Customers
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/customers` | List all customers |
+| POST | `/customers` | Add new customer |
+| GET | `/customers/{id}` | Get customer details |
+| PUT | `/customers/{id}` | Update customer |
 
-#### 📦 المشتريات
+#### Reports
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/reports/sales` | Sales report |
+| GET | `/reports/inventory` | Inventory report |
+| GET | `/reports/profit` | Profit report |
 
-| الطريقة | المسار | الوصف |
-|---------|-------|-------|
-| GET | /purchases | قائمة المشتريات |
-| POST | /purchases | تسجيل عملية شراء |
-| GET | /purchases/{id} | تفاصيل عملية شراء |
+### Response Format
 
-#### 🏢 الموردين
-
-| الطريقة | المسار | الوصف |
-|---------|-------|-------|
-| GET | /suppliers | قائمة الموردين |
-| POST | /suppliers | إضافة مورد جديد |
-| GET | /suppliers/{id} | تفاصيل مورد |
-| PUT | /suppliers/{id} | تحديث معلومات مورد |
-| DELETE | /suppliers/{id} | حذف مورد |
-
-#### 👥 العملاء
-
-| الطريقة | المسار | الوصف |
-|---------|-------|-------|
-| GET | /customers | قائمة العملاء |
-| POST | /customers | إضافة عميل جديد |
-| GET | /customers/{id} | تفاصيل عميل |
-| PUT | /customers/{id} | تحديث معلومات عميل |
-
-#### 📊 التقارير
-
-| الطريقة | المسار | الوصف |
-|---------|-------|-------|
-| GET | /reports/sales | تقرير المبيعات |
-| GET | /reports/inventory | تقرير المخزون |
-| GET | /reports/profit | تقرير الأرباح |
-
-### شكل الاستجابة (Response Format)
-
-**استجابة ناجحة:**
-
+**Success Response:**
 ```json
 {
   "success": true,
-  "message": "تم جلب البيانات بنجاح",
+  "message": "Operation successful",
   "data": {
-    "medicines": [...]
+    ...
   }
 }
 ```
 
-**استجابة فاشلة:**
-
+**Error Response:**
 ```json
 {
   "success": false,
-  "message": "حدث خطأ في العملية",
+  "message": "Operation failed",
   "errors": {
-    "field_name": ["رسالة الخطأ"]
+    "field": ["Error message"]
   }
 }
 ```
 
 ---
 
-## 🗄️ قاعدة البيانات
+## Database Schema
 
-### الجداول الرئيسية
+### Main Tables
 
 ```
-├── users              → المستخدمون والموظفون
-├── roles              → الأدوار (Admin, Pharmacist, etc.)
-├── permissions        → الصلاحيات
-├── medicines          → الأدوية
-├── categories         → تصنيفات الأدوية
-├── suppliers          → الموردين
-├── customers          → العملاء
-├── sales              → فواتير البيع
-├── sale_items         → منتجات الفاتورة
-├── purchases          → عمليات الشراء
-├── purchase_items     → منتجات المشتريات
-└── notifications      → الإشعارات
+users              - System users and staff
+roles              - User roles (Admin, Pharmacist, etc.)
+permissions        - Access permissions
+medicines          - Medicine inventory
+categories         - Medicine categories
+suppliers          - Supplier information
+customers          - Customer database
+sales              - Sales transactions
+sale_items         - Sale line items
+purchases          - Purchase orders
+purchase_items     - Purchase line items
+notifications      - System notifications
 ```
 
 ---
 
-## 🧪 الاختبارات
+## Testing
 
-تشغيل جميع الاختبارات:
-
+Run all tests:
 ```bash
 php artisan test
 ```
 
-تشغيل اختبارات محددة:
-
+Run specific tests:
 ```bash
 php artisan test --filter=MedicineTest
 ```
 
 ---
 
-## 📁 هيكلية المشروع
+## Project Structure
 
 ```
-project_1/
-│
+PharmaCare-Backend/
 ├── app/
 │   ├── Http/
-│   │   ├── Controllers/      # وحدات التحكم
-│   │   ├── Middleware/       # الوسطيات
-│   │   ├── Requests/         # طلبات التحقق
-│   │   └── Resources/        # موارد API
-│   ├── Models/               # نماذج البيانات
-│   └── Services/             # منطق الأعمال
-│
+│   │   ├── Controllers/    # API Controllers
+│   │   ├── Middleware/     # Custom Middleware
+│   │   ├── Requests/       # Form Requests
+│   │   └── Resources/      # API Resources
+│   ├── Models/             # Eloquent Models
+│   └── Services/           # Business Logic
 ├── database/
-│   ├── migrations/           # ترحيلات قاعدة البيانات
-│   ├── seeders/             # البيانات التجريبية
-│   └── factories/           # مصانع البيانات
-│
+│   ├── migrations/         # Database Migrations
+│   ├── seeders/           # Database Seeders
+│   └── factories/         # Model Factories
 ├── routes/
-│   ├── api.php              # مسارات API
-│   └── web.php              # مسارات الويب
-│
-└── tests/                   # الاختبارات
+│   ├── api.php            # API Routes
+│   └── web.php            # Web Routes
+└── tests/                 # Application Tests
 ```
 
 ---
 
-## 🔒 الأمان
+## Security
 
-يتضمن المشروع تدابير أمنية متقدمة:
-
-- ✅ تشفير كلمات المرور باستخدام bcrypt
-- ✅ حماية من هجمات CSRF
-- ✅ حماية من SQL Injection
-- ✅ حماية من هجمات XSS
-- ✅ تحديد معدل الطلبات (Rate Limiting)
-- ✅ التحقق الشامل من صحة المدخلات
-- ✅ جاهز لاستخدام HTTPS
-
----
-
-## 🤝 المساهمة
-
-المساهمات مرحب بها دائماً! للمساهمة في المشروع:
-
-1. قم بعمل Fork للمشروع
-2. أنشئ فرع للميزة الجديدة (`git checkout -b feature/amazing-feature`)
-3. قم بعمل Commit لتغييراتك (`git commit -m 'Add amazing feature'`)
-4. ادفع التغييرات للفرع (`git push origin feature/amazing-feature`)
-5. افتح Pull Request
+This project implements:
+- Password encryption using bcrypt
+- CSRF protection
+- SQL Injection prevention
+- XSS attack protection
+- API rate limiting
+- Input validation
+- HTTPS ready
 
 ---
 
-## 📝 الترخيص
+## Contributing
 
-هذا المشروع مرخص تحت رخصة MIT - انظر ملف [LICENSE](LICENSE) لمزيد من التفاصيل.
+Contributions are welcome! To contribute:
+
+1. Fork the project
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ---
 
-## 👨‍💻 المطور
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## Contact
 
 **Ghaith Ehasan**
 
 - GitHub: [@Ghaithehasan](https://github.com/Ghaithehasan)
-- Email: ghaithehasan@example.com
+- Email: abrahymtrkyhsn0@gmail.com
 
 ---
 
-## 🙏 شكر وتقدير
+## Acknowledgments
 
-- فريق Laravel على هذا الإطار الرائع
-- المجتمع البرمجي العربي
-- جميع المساهمين والمكتبات مفتوحة المصدر
-
----
-
-## 📞 الدعم والمساعدة
-
-إذا واجهت أي مشكلة أو كان لديك استفسار:
-
-- افتح [Issue جديد](https://github.com/Ghaithehasan/project_1/issues)
-- تواصل معي عبر البريد الإلكتروني
+- Laravel Framework
+- All open-source contributors
+- The amazing PHP community
 
 ---
 
 <p align="center">
-  <strong>⭐ إذا أعجبك المشروع، لا تنسَ إعطاءه نجمة! ⭐</strong>
+  <strong>⭐ If you find this project useful, please give it a star! ⭐</strong>
 </p>
 
 <p align="center">
-  صُنع بـ ❤️ في العالم العربي
+  Made with ❤️ by Ghaith Ehasan
 </p>
